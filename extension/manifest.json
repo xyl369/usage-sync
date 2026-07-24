@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Usage Sync · Cursor & Gemini",
+  "description": "Sync usage from Cursor Spending / Billing and Gemini usage pages to local usage managers.",
+  "version": "1.3.5",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://cursor.com/*",
+    "https://www.cursor.com/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Usage Sync",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://cursor.com/*",
+        "https://www.cursor.com/*"
+      ],
+      "js": [
+        "content/cursor.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "content/gemini.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "file:///*"
+      ],
+      "js": [
+        "content/manager-bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

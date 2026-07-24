@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Quota Manager</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --primary: #6366f1;
+            --cyan: #22d3ee;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', sans-serif;
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 1.5rem;
+        }
+
+        .container {
+            max-width: 560px;
+            width: 100%;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 2rem 2.25rem 2.25rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            margin: auto;
+        }
+
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+        }
+
+        .header { text-align: center; margin-bottom: 1.25rem; }
+
+        .title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .time-badge {
+            background: rgba(255,255,255,0.05);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-variant-numeric: tabular-nums;
+            border: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.82rem;
+        }
+
+        .logic-hint {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+            padding: 0.75rem 1rem;
+            background: rgba(99,102,241,0.08);
+            border: 1px solid rgba(99,102,241,0.15);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        #usage-sync-slot { margin: 0 0 1rem; }
+        #usage-sync-slot[hidden] { display: none; }
+        .usage-sync-banner {
+            margin: 0;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            line-height: 1.45;
+            text-align: left;
+            font-variant-numeric: tabular-nums;
+        }
+        .usage-sync-banner.is-ok {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .usage-sync-banner.is-wait {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .logic-hint strong { color: #c7d2fe; font-weight: 600; }
+
+        .cycle-block {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 16px;
+            padding: 1.2rem 1.3rem;
+            margin-bottom: 0.85rem;
+            border: 1px solid rgba(255,255,255,0.05);
+            --slider-color: var(--primary);
+        }
+
+        .cycle-block.short-cycle {
+            border-color: rgba(34, 211, 238, 0.15);
+            background: linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(0,0,0,0.25) 100%);
+            --slider-color: var(--cyan);
+        }
+
+        .cycle-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.85rem;
+            gap: 10px;
+        }
+
+        .cycle-title {
+            font-size: 0.92rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cycle-badge {
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            color: var(--text-muted);
+        }
+
+        .cycle-meta {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.45;
+        }
+
+        .cycle-meta strong { color: var(--text-main); }
+
+        .progress-item { margin-bottom: 0.9rem; }
+        .progress-item:last-child { margin-bottom: 0; }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.83rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            align-items: baseline;
+        }
+
+        .usage-highlight {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--slider-color);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .balance-text {
+            font-size: 0.74rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        .balance-text em {
+            font-style: normal;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .slider-wrapper {
+            position: relative;
+            height: 28px;
+            display: flex;
+            align-items: center;
+        }
+
+        .slider-track-bg {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+        }
+
+        .cycle-ticks {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 8px;
+            pointer-events: none;
+        }
+
+        .cycle-tick {
+            position: absolute;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background: rgba(255,255,255,0.14);
+        }
+
+        .progress-bar {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 8px;
+            border-radius: 4px;
+            transition: width 0.35s ease;
+            pointer-events: none;
+            left: 0;
+        }
+
+        .time-bar { background: rgba(255, 255, 255, 0.3); z-index: 0; }
+
+        .usage-bar {
+            background: var(--slider-color);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--slider-color) 55%, transparent);
+            z-index: 1;
+        }
+
+        .ideal-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 16px;
+            background: #fff;
+            border-radius: 2px;
+            z-index: 2;
+            box-shadow: 0 0 8px rgba(255,255,255,0.5);
+            transition: left 1s linear;
+            pointer-events: none;
+        }
+
+        .ideal-marker::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            white-space: nowrap;
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            height: 28px;
+            margin: 0;
+        }
+
+        input[type=range]:focus { outline: none; }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 28px;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: #fff;
+            -webkit-appearance: none;
+            border: 3px solid var(--slider-color);
+            box-shadow: 0 0 12px rgba(0,0,0,0.35);
+            cursor: pointer;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+            margin: 1rem 0;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.95rem 1rem;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .stat-label { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .stat-value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+        .verdict-card {
+            padding: 1.15rem 1.25rem;
+            border-radius: 16px;
+            border-left: 4px solid var(--primary);
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%);
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .verdict-title { font-size: 0.98rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .verdict-text { color: var(--text-muted); line-height: 1.6; font-size: 0.84rem; }
+        .verdict-text strong { color: var(--text-main); }
+
+        .manager-nav {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+        }
+
+        .manager-nav a {
+            text-align: center;
+            padding: 10px 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 8px;
+        }
+
+        .manager-nav a:hover { background: rgba(255,255,255,0.06); color: var(--text-main); }
+        .manager-nav a.active {
+            background: rgba(99, 102, 241, 0.25);
+            color: #c7d2fe;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.82rem;
+            text-decoration: underline;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .modal {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.82);
+            backdrop-filter: blur(4px);
+            z-index: 10;
+            border-radius: 24px;
+            padding: 1.5rem;
+            align-items: center;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 1.75rem;
+            border-radius: 16px;
+            width: 100%;
+            border: 1px solid var(--card-border);
+        }
+
+        .modal-content h3 { margin-bottom: 1.1rem; font-size: 1.05rem; }
+
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.35rem; color: var(--text-muted); font-size: 0.84rem; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.65rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(0,0,0,0.4);
+            color: white;
+            font-family: inherit;
+        }
+
+        .form-hint { font-size: 0.73rem; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.5; }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.7rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="modal" id="settingsModal">
+            <div class="modal-content">
+                <h3>Cycle settings</h3>
+                <div class="form-group">
+                    <label>Weekly quota reset anchor (every 7 days)</label>
+                    <input type="datetime-local" id="baseTimeInput">
+                </div>
+                <div class="form-group">
+                    <label>Next 5-hour window reset time</label>
+                    <input type="datetime-local" id="shortResetInput">
+                    <p class="form-hint">Copy the short-cycle reset time from the Gemini panel; advances every 5 hours after expiry.</p>
+                </div>
+                <div class="form-group">
+                    <label>Deduction per full use (weekly quota %)</label>
+                    <select id="perCycleInput">
+                        <option value="5">5% (PRO tested)</option>
+                        <option value="10">10%</option>
+                        <option value="4">4%</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group" id="customPerCycleGroup" style="display:none">
+                    <label>Custom deduction per use %</label>
+                    <input type="number" id="customPerCycleInput" min="1" max="100" step="1" value="5">
+                </div>
+                <button class="btn" onclick="saveSettings()">Save</button>
+            </div>
+        </div>
+
+        <div class="header">
+            <h1 class="title">Gemini Quota Manager</h1>
+            <div class="subtitle">
+                <span id="currentDate" class="time-badge">--</span>
+                <span>Weekly reset <strong id="resetDateDisplay">--</strong></span>
+            </div>
+        </div>
+
+        <div id="usage-sync-slot" hidden aria-live="polite"></div>
+
+        <p class="logic-hint">
+            Official page has two metrics: <strong>Current usage</strong> = 5-hour window consumption; <strong>Weekly limit</strong> = 7-day total quota.
+            Slider below aligns to <strong>Weekly limit</strong> only; short-cycle usage is read-only. <strong>Ideal</strong> = linear time over 7 days.
+        </p>
+
+        <!-- 5-hour short cycle: current window only -->
+        <div class="cycle-block short-cycle" id="shortCycleBlock">
+            <div class="cycle-head">
+                <div class="cycle-title">⏱ Current 5-hour window<span class="cycle-badge">Official: Current usage</span></div>
+                <div class="cycle-meta">
+                    Resets <strong id="shortResetDisplay">--</strong><br>
+                    <span id="shortCountdown">--</span>
+                </div>
+            </div>
+            <div class="progress-item">
+                <div class="progress-label">
+                    <span>Window time</span>
+                    <span id="shortTimeText">--%</span>
+                </div>
+                <div class="slider-wrapper">
+                    <div class="slider-track-bg"></div>
+                    <div class="progress-bar time-bar" id="shortTimeBar"></div>
+                </div>
+            </div>
+            <div class="progress-item" style="margin-top:0.85rem">
+                <div class="progress-label">
+                    <span>Current usage <span class="balance-text">Read-only · auto-syncs when official page refreshes</span></span>
+                    <span id="shortUsageText" class="usage-highlight">Waiting for sync</span>
+                </div>
+                <div class="slider-wrapper">
+                    <div class="slider-track-bg"></div>
+                    <div class="progress-bar usage-bar" id="shortUsageBar" style="background:var(--cyan)"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly quota: 5-hour window cadence -->
+        <div class="cycle-block" id="weeklyCycleBlock">
+            <div class="cycle-head">
+                <div class="cycle-title">📅 Weekly quota (7 days)<span class="cycle-badge">Official: Weekly limit</span><span class="cycle-badge" id="cycleBudgetBadge">--</span></div>
+                <div class="cycle-meta">
+                    Remaining <strong id="weeklyRemainTime">--</strong><br>
+                    <span id="windowsElapsedText">--</span>
+                </div>
+            </div>
+            <div class="progress-item">
+                <div class="progress-label">
+                    <span>Weekly usage <span class="balance-text">Draggable · Balance <em id="weeklyRemainText">--%</em></span></span>
+                    <span id="weeklyUsageValue" class="usage-highlight">--%</span>
+                </div>
+                <div class="slider-wrapper">
+                    <div class="slider-track-bg"></div>
+                    <div class="cycle-ticks" id="weeklyTicks"></div>
+                    <div class="ideal-marker" id="idealMarker" data-label="Ideal"></div>
+                    <div class="progress-bar usage-bar" id="weeklyUsageBar"></div>
+                    <input type="range" id="weeklyUsageSlider" min="0" max="100" step="1" value="10">
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Full uses / weekly max</div>
+                <div class="stat-value" id="cyclesUsedDisplay">--</div>
+                <div class="stat-sub" id="perCycleSub">Deduction per full use --%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ideal weekly usage</div>
+                <div class="stat-value" id="idealUsageDisplay">--%</div>
+                <div class="stat-sub" id="idealSub">Linear from elapsed week time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Current pace</div>
+                <div class="stat-value" id="paceDisplay" style="font-size:0.95rem">--</div>
+                <div class="stat-sub" id="paceSub">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Remaining fills</div>
+                <div class="stat-value" id="cyclesLeftDisplay">-- uses</div>
+                <div class="stat-sub" id="cyclesLeftSub">--</div>
+            </div>
+        </div>
+
+        <div class="verdict-card" id="verdictCard">
+            <span class="status-dot" id="statusDot"></span>
+            <div>
+                <div class="verdict-title" id="verdictTitle">--</div>
+                <div class="verdict-text" id="verdictText">--</div>
+            </div>
+        </div>
+
+        <nav class="manager-nav">
+            <a href="cursor-usage-manager.html">Cursor</a>
+            <a href="gemini-quota-manager.html" class="active">Gemini</a>
+        </nav>
+        <button class="settings-btn" onclick="openSettings()">Edit reset time & deduction rules</button>
+    </div>
+
+    <script>
+        const CYCLE_DAYS = 7;
+        const SHORT_H = 5;
+        const MS_H = 3600000;
+        const MS_DAY = 86400000;
+        const DEFAULT_WEEKLY_RESET = '2026-07-14T13:12';
+        const DEFAULT_SHORT_RESET = '2026-07-07T22:12';
+        const DEFAULT_PER_CYCLE = 5;
+
+        let weeklyUsage = 10;
+        let shortUsage = null; // official "Current usage"
+        let perCycleCost = DEFAULT_PER_CYCLE;
+        let weeklyResetStr = localStorage.getItem('geminiBaseResetTime') || DEFAULT_WEEKLY_RESET;
+        let shortResetStr = localStorage.getItem('geminiShortResetTime') || DEFAULT_SHORT_RESET;
+
+        const dateOpts = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+
+        function pct(n) { return Math.round(Math.max(0, Math.min(100, n))); }
+
+        function loadState() {
+            const w = localStorage.getItem('geminiCurrentUsage');
+            const p = localStorage.getItem('geminiPerCycleCost');
+            const s = localStorage.getItem('geminiShortUsage');
+            if (w !== null) weeklyUsage = pct(+w);
+            if (p !== null) perCycleCost = pct(+p);
+            if (s !== null && Number.isFinite(+s)) shortUsage = Math.max(0, Math.min(100, +s));
+            document.getElementById('weeklyUsageSlider').value = weeklyUsage;
+        }
+
+        function getNextWeeklyReset(now = new Date()) {
+            const base = new Date(weeklyResetStr).getTime();
+            const nowMs = now.getTime();
+            const cycleMs = CYCLE_DAYS * MS_DAY;
+            let d = base;
+            if (d > nowMs) {
+                d -= Math.ceil((d - nowMs) / cycleMs) * cycleMs;
+            }
+            return new Date(d + (Math.floor((nowMs - d) / cycleMs) + 1) * cycleMs);
+        }
+
+        function getNextShortReset(now = new Date()) {
+            const base = new Date(shortResetStr).getTime();
+            const nowMs = now.getTime();
+            const cycleMs = SHORT_H * MS_H;
+            let d = base;
+            if (d > nowMs) {
+                d -= Math.ceil((d - nowMs) / cycleMs) * cycleMs;
+            }
+            return new Date(d + (Math.floor((nowMs - d) / cycleMs) + 1) * cycleMs);
+        }
+
+        function getWeeklyContext(now = new Date()) {
+            const nextReset = getNextWeeklyReset(now);
+            const weekStart = new Date(nextReset.getTime() - CYCLE_DAYS * MS_DAY);
+            const elapsed = Math.max(0, now.getTime() - weekStart.getTime());
+            const remaining = Math.max(0, nextReset.getTime() - now.getTime());
+            return { nextReset, weekStart, elapsed, remaining };
+        }
+
+        function getShortContext(now = new Date()) {
+            const nextReset = getNextShortReset(now);
+            const windowStart = new Date(nextReset.getTime() - SHORT_H * MS_H);
+            const elapsed = Math.max(0, now.getTime() - windowStart.getTime());
+            const remaining = Math.max(0, nextReset.getTime() - now.getTime());
+            const timeProgress = pct((elapsed / (SHORT_H * MS_H)) * 100);
+            return { nextReset, remaining, timeProgress };
+        }
+
+        /** Number of 5h windows elapsed this week (includes current window) */
+        function windowsElapsed(weekStart, now) {
+            const ms = Math.max(0, now.getTime() - weekStart.getTime());
+            return Math.max(1, Math.ceil(ms / (SHORT_H * MS_H)));
+        }
+
+        /** Ideal weekly usage = linear time ratio over 7 days */
+        function idealWeeklyUsage(elapsedMs) {
+            return pct((elapsedMs / (CYCLE_DAYS * MS_DAY)) * 100);
+        }
+
+        function maxCyclesPerWeek(cost) {
+            return Math.floor(100 / cost);
+        }
+
+        /** Infer full-use count from weekly usage */
+        function cyclesFromUsage(usage, cost) {
+            return Math.round(usage / cost);
+        }
+
+        /** Remaining full uses (to 0.1 precision) */
+        function cyclesRemaining(usage, cost) {
+            return (100 - usage) / cost;
+        }
+
+        function fmtDur(ms) {
+            const m = Math.floor(ms / 60000);
+            const h = Math.floor(m / 60);
+            const min = m % 60;
+            return h > 0 ? (min > 0 ? `${h}h ${min}m` : `${h}h`) : `${min}m`;
+        }
+
+        function fmtRemain(ms) {
+            const d = Math.floor(ms / MS_DAY);
+            const h = Math.floor((ms % MS_DAY) / MS_H);
+            return d > 0 ? `${d}d ${h}h` : `${h}h`;
+        }
+
+        function buildTicks(cost) {
+            const el = document.getElementById('weeklyTicks');
+            el.innerHTML = '';
+            const n = Math.floor(100 / cost);
+            for (let i = 1; i < n; i++) {
+                const t = document.createElement('div');
+                t.className = 'cycle-tick';
+                t.style.left = `${i * cost}%`;
+                el.appendChild(t);
+            }
+        }
+
+        function updateDashboard() {
+            const now = new Date();
+            const week = getWeeklyContext(now);
+            const short = getShortContext(now);
+            const cost = perCycleCost;
+            const weeklyRemain = 100 - weeklyUsage;
+            const winElapsed = windowsElapsed(week.weekStart, now);
+            const ideal = idealWeeklyUsage(week.elapsed);
+            const maxCycles = maxCyclesPerWeek(cost);
+            const usedCycles = cyclesFromUsage(weeklyUsage, cost);
+            const leftCycles = cyclesRemaining(weeklyUsage, cost);
+            const ahead = weeklyUsage - ideal;
+
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', dateOpts);
+            document.getElementById('resetDateDisplay').textContent = week.nextReset.toLocaleDateString('en-US', dateOpts);
+
+            // Short cycle
+            document.getElementById('shortResetDisplay').textContent =
+                short.nextReset.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('shortCountdown').textContent = `${fmtDur(short.remaining)} left`;
+            document.getElementById('shortTimeText').textContent = `${short.timeProgress}%`;
+            document.getElementById('shortTimeBar').style.width = `${short.timeProgress}%`;
+
+            const shortUsageEl = document.getElementById('shortUsageText');
+            const shortUsageBar = document.getElementById('shortUsageBar');
+            if (shortUsageEl && shortUsageBar) {
+                if (shortUsage == null) {
+                    shortUsageEl.textContent = 'Waiting for sync';
+                    shortUsageBar.style.width = '0%';
+                } else {
+                    shortUsageEl.textContent = `${shortUsage}%`;
+                    shortUsageBar.style.width = `${shortUsage}%`;
+                }
+            }
+
+            // Weekly quota
+            document.getElementById('cycleBudgetBadge').textContent = `${maxCycles} full uses/week at max`;
+            document.getElementById('weeklyRemainTime').textContent = fmtRemain(week.remaining);
+            document.getElementById('windowsElapsedText').textContent = `5h window ${winElapsed} of week`;
+            document.getElementById('weeklyUsageValue').textContent = `${weeklyUsage}%`;
+            document.getElementById('weeklyRemainText').textContent = `${weeklyRemain}%`;
+            document.getElementById('weeklyUsageBar').style.width = `${weeklyUsage}%`;
+            
+            const idealMarker = document.getElementById('idealMarker');
+            idealMarker.style.left = `${ideal}%`;
+            idealMarker.setAttribute('data-label', 'Ideal');
+
+            // Stats
+            document.getElementById('cyclesUsedDisplay').textContent = `${usedCycles} / ${maxCycles}`;
+            document.getElementById('perCycleSub').textContent = `${cost}% per full use`;
+            document.getElementById('idealUsageDisplay').textContent = `${ideal}%`;
+            document.getElementById('idealSub').textContent = `Linear from elapsed week time`;
+
+            document.getElementById('cyclesLeftDisplay').textContent = `${leftCycles.toFixed(1)} uses`;
+            let dailyAdvice = '';
+            if (leftCycles <= 0) {
+                dailyAdvice = 'No balance left';
+            } else if (week.remaining > MS_H) {
+                const remainDays = week.remaining / MS_DAY;
+                const dailyAvg = leftCycles / remainDays;
+                if (dailyAvg >= (24 / SHORT_H)) {
+                    dailyAdvice = 'Plenty of headroom';
+                } else {
+                    dailyAdvice = `Suggested daily max ${dailyAvg.toFixed(1)} uses`;
+                }
+            } else {
+                dailyAdvice = 'Reset soon — use it or lose it';
+            }
+            document.getElementById('cyclesLeftSub').textContent = dailyAdvice;
+
+            const paceCard = document.getElementById('paceDisplay');
+            const paceSub = document.getElementById('paceSub');
+            if (ahead > 0) {
+                paceCard.textContent = `Ahead ${ahead}%`;
+                paceCard.style.color = 'var(--yellow)';
+                paceSub.textContent = 'Consider slowing down';
+            } else if (ahead < 0) {
+                paceCard.textContent = `Behind ${Math.abs(ahead)}%`;
+                paceCard.style.color = 'var(--green)';
+                paceSub.textContent = 'Still plenty of headroom';
+            } else {
+                paceCard.textContent = 'On track';
+                paceCard.style.color = 'var(--text-main)';
+                paceSub.textContent = 'Matches elapsed time exactly';
+            }
+
+            buildTicks(cost);
+
+            // Status verdict
+            let status, msg, color;
+            if (weeklyUsage >= 100) {
+                status = 'Weekly quota exhausted';
+                msg = 'Weekly quota used up — wait for weekly reset.';
+                color = 'var(--red)';
+            } else if (ahead > 0) {
+                status = 'Weekly pace ahead';
+                msg = `Weekly usage <strong>${weeklyUsage}%</strong> above Ideal line <strong>${ideal}%</strong> (ahead <strong>${ahead}%</strong>).`;
+                color = 'var(--yellow)';
+            } else {
+                status = 'On pace';
+                msg = `Weekly usage <strong>${weeklyUsage}%</strong> ≤ Ideal line <strong>${ideal}%</strong> — keep it up.`;
+                color = 'var(--green)';
+            }
+
+            document.getElementById('verdictTitle').textContent = status;
+            document.getElementById('verdictText').innerHTML = msg;
+            document.getElementById('verdictCard').style.borderLeftColor = color;
+            document.getElementById('verdictCard').style.background = `linear-gradient(90deg, ${color}22, transparent)`;
+            const dot = document.getElementById('statusDot');
+            dot.style.backgroundColor = color;
+            dot.style.boxShadow = `0 0 10px ${color}`;
+            dot.style.animation = color === 'var(--green)' ? 'pulse 2s infinite' : 'none';
+            document.getElementById('weeklyCycleBlock').style.setProperty('--slider-color', color);
+        }
+
+        function openSettings() {
+            document.getElementById('baseTimeInput').value = weeklyResetStr;
+            document.getElementById('shortResetInput').value = shortResetStr;
+            const sel = document.getElementById('perCycleInput');
+            if ([4, 5, 10].includes(perCycleCost)) {
+                sel.value = String(perCycleCost);
+                document.getElementById('customPerCycleGroup').style.display = 'none';
+            } else {
+                sel.value = 'custom';
+                document.getElementById('customPerCycleGroup').style.display = 'block';
+                document.getElementById('customPerCycleInput').value = perCycleCost;
+            }
+            document.getElementById('settingsModal').classList.add('active');
+        }
+
+        function saveSettings() {
+            const b = document.getElementById('baseTimeInput').value;
+            const s = document.getElementById('shortResetInput').value;
+            const sel = document.getElementById('perCycleInput').value;
+            if (b) { weeklyResetStr = b; localStorage.setItem('geminiBaseResetTime', b); }
+            if (s) { shortResetStr = s; localStorage.setItem('geminiShortResetTime', s); }
+            if (sel === 'custom') {
+                perCycleCost = pct(+document.getElementById('customPerCycleInput').value);
+            } else {
+                perCycleCost = pct(+sel);
+            }
+            localStorage.setItem('geminiPerCycleCost', perCycleCost);
+            document.getElementById('settingsModal').classList.remove('active');
+            updateDashboard();
+        }
+
+        document.getElementById('perCycleInput').addEventListener('change', (e) => {
+            document.getElementById('customPerCycleGroup').style.display =
+                e.target.value === 'custom' ? 'block' : 'none';
+        });
+
+        document.getElementById('weeklyUsageSlider').addEventListener('input', (e) => {
+            weeklyUsage = pct(+e.target.value);
+            localStorage.setItem('geminiCurrentUsage', weeklyUsage);
+            updateDashboard();
+        });
+
+
+        /** Called by Usage Sync extension for official Gemini usage */
+        window.applyGeminiSync = function applyGeminiSync(data) {
+            if (!data || typeof data !== 'object') return;
+            // Weekly limit → weekly slider (never current usage)
+            if (data.weekly != null && Number.isFinite(Number(data.weekly))) {
+                weeklyUsage = pct(+data.weekly);
+                localStorage.setItem('geminiCurrentUsage', weeklyUsage);
+                document.getElementById('weeklyUsageSlider').value = weeklyUsage;
+            }
+            // Current usage → short-cycle read-only bar
+            if (data.short != null && Number.isFinite(Number(data.short))) {
+                shortUsage = Math.max(0, Math.min(100, Math.round(Number(data.short) * 10) / 10));
+                localStorage.setItem('geminiShortUsage', String(shortUsage));
+            }
+            if (data.weeklyReset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.weeklyReset)) {
+                weeklyResetStr = data.weeklyReset.slice(0, 16);
+                localStorage.setItem('geminiBaseResetTime', weeklyResetStr);
+            }
+            if (data.shortReset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.shortReset)) {
+                shortResetStr = data.shortReset.slice(0, 16);
+                localStorage.setItem('geminiShortResetTime', shortResetStr);
+            }
+            updateDashboard();
+        };
+
+        loadState();
+        setInterval(updateDashboard, 1000);
+        updateDashboard();
+    </script>
+</body>
+</html>

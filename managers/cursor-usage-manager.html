@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor Usage Manager</title>
+    <style>
+        :root {
+            --bg: #f3f3f3;
+            --card: #ffffff;
+            --border: #e5e5e5;
+            --border-strong: #d4d4d4;
+            --text: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-tertiary: #8a8a8a;
+            --accent: #0e639c;
+            --accent-hover: #0b5280;
+            --track: #e8e8e8;
+            --green: #16825d;
+            --yellow: #bf8803;
+            --red: #c72e2e;
+            --radius: 10px;
+            --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', sans-serif;
+            --bar-h: 6px;
+            --hit-h: 28px;
+            --thumb: 14px;
+            --metric-color: var(--accent);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 32px 16px 48px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .page { max-width: 520px; margin: 0 auto; }
+
+        .page-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.01em;
+        }
+
+        /* Extension sync status: below plan card, not in top bar */
+        #usage-sync-slot {
+            margin: 0 0 12px;
+        }
+
+        #usage-sync-slot[hidden] {
+            display: none;
+        }
+
+        .usage-sync-banner {
+            margin: 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.45;
+            text-align: left;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .usage-sync-banner.is-ok {
+            background: rgba(22, 130, 93, 0.1);
+            color: #16825d;
+            border: 1px solid rgba(22, 130, 93, 0.28);
+        }
+
+        .usage-sync-banner.is-wait {
+            background: rgba(199, 46, 46, 0.08);
+            color: #c72e2e;
+            border: 1px solid rgba(199, 46, 46, 0.28);
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 12px;
+        }
+
+        .plan-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 6px;
+        }
+
+        .plan-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .plan-name { font-size: 22px; font-weight: 600; margin-bottom: 2px; line-height: 1.2; }
+        .plan-price { font-size: 14px; color: var(--text-secondary); margin-bottom: 6px; line-height: 1.3; }
+        .plan-reset { font-size: 13px; color: var(--text-secondary); line-height: 1.35; }
+        .plan-reset strong { color: var(--text); font-weight: 500; }
+
+        .btn-ghost {
+            flex-shrink: 0;
+            align-self: center;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            background: var(--card);
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            padding: 7px 14px;
+            text-decoration: none;
+            line-height: 1;
+        }
+
+        .btn-ghost:hover { background: #fafafa; }
+
+        .section-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.45;
+        }
+
+        .time-block {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .usage-block { margin-bottom: 18px; }
+        .usage-block.has-ideal-label { margin-bottom: 26px; padding-bottom: 2px; }
+        .usage-block:last-of-type { margin-bottom: 0; }
+
+        .usage-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            min-height: 22px;
+        }
+
+        .usage-name {
+            font-weight: 500;
+            line-height: 1.35;
+            padding-top: 1px;
+        }
+
+        .usage-sub {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-weight: 400;
+            margin-left: 6px;
+        }
+
+        .usage-pct {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-start;
+            min-width: 4.5em;
+            font-size: 14px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            color: var(--metric-color);
+            transition: color 0.25s;
+            line-height: 1.2;
+            text-align: right;
+        }
+
+        .usage-pct .delta {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            margin-top: 3px;
+            line-height: 1.2;
+            opacity: 0.95;
+            white-space: nowrap;
+        }
+
+        .usage-pct .delta.over { color: inherit; }
+        .usage-pct .delta.ok { color: var(--green); }
+        .usage-pct .delta.under { color: var(--green); }
+
+        /* Slider overlays progress bar */
+        .bar-interactive {
+            position: relative;
+            height: var(--hit-h);
+            cursor: pointer;
+        }
+
+        .bar-visual {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: var(--bar-h);
+            background: var(--track);
+            border-radius: 3px;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: var(--metric-color);
+            border-radius: 3px;
+            transition: width 0.25s ease, background 0.25s;
+            pointer-events: none;
+        }
+
+        .bar-fill.readonly { opacity: 0.9; }
+
+        /* Same as Gemini: Ideal line = time progress, advances with cycle */
+        .ideal-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 16px;
+            background: var(--text);
+            border-radius: 2px;
+            box-shadow: 0 0 0 1px var(--card), 0 1px 4px rgba(0,0,0,0.15);
+            z-index: 2;
+            left: 0%;
+            transition: left 1s linear;
+            pointer-events: none;
+        }
+
+        .ideal-marker.with-label::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: calc(-100% - 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #fff;
+            white-space: nowrap;
+            background: var(--text);
+            padding: 2px 6px;
+            border-radius: 4px;
+            line-height: 1.25;
+            font-variant-numeric: tabular-nums;
+            pointer-events: none;
+        }
+
+        .time-bar-fill {
+            height: 100%;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 3px;
+            transition: width 1s linear;
+        }
+
+        .pace-hint {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+            margin-top: 18px;
+            padding-top: 0;
+        }
+
+        .pace-hint strong {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .bar-slider {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: var(--hit-h);
+            margin: 0;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+            z-index: 3;
+        }
+
+        .bar-slider:focus { outline: none; }
+
+        .bar-slider::-webkit-slider-runnable-track {
+            height: var(--hit-h);
+            background: transparent;
+        }
+
+        .bar-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: var(--thumb);
+            height: var(--thumb);
+            border-radius: 50%;
+            background: var(--card);
+            border: 2px solid var(--metric-color);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+            margin-top: calc((var(--hit-h) - var(--thumb)) / 2);
+            transition: border-color 0.25s;
+        }
+
+        .bar-slider::-moz-range-track {
+            height: var(--hit-h);
+            background: transparent;
+            border: none;
+        }
+
+        .bar-slider::-moz-range-thumb {
+            width: var(--thumb);
+            height: var(--thumb);
+            border-radius: 50%;
+            background: var(--card);
+            border: 2px solid var(--metric-color);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+        }
+
+        .total-block {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .stat-card {
+            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            min-height: 68px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+        }
+
+        .verdict-card {
+            margin-top: 12px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+            background: linear-gradient(90deg, rgba(14, 99, 156, 0.08) 0%, transparent 100%);
+            transition: border-color 0.25s, background 0.25s;
+        }
+
+        .verdict-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .verdict-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.55;
+        }
+
+        .verdict-text strong { color: var(--text); font-weight: 600; }
+
+        @keyframes pulse-dot {
+            0% { box-shadow: 0 0 0 0 rgba(22, 130, 93, 0.45); }
+            70% { box-shadow: 0 0 0 6px rgba(22, 130, 93, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(22, 130, 93, 0); }
+        }
+
+        .status-dot.pulse { animation: pulse-dot 2s infinite; }
+
+        .footer {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .footer button,
+        .footer a {
+            font-family: inherit;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            padding: 0;
+        }
+
+        .footer button:hover,
+        .footer a:hover { color: var(--text); }
+
+        .manager-nav {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 12px;
+            padding: 5px;
+            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .manager-nav a {
+            display: block;
+            text-align: center;
+            padding: 10px 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 7px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .manager-nav a:hover { background: #fff; color: var(--text); }
+
+        .manager-nav a.active {
+            background: var(--card);
+            color: var(--accent);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            font-weight: 600;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        }
+
+        .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+        .form-group { margin-bottom: 14px; }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 14px;
+            font-family: inherit;
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn-primary {
+            width: 100%;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            color: #fff;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            padding: 9px 16px;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover { background: var(--accent-hover); }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <p class="page-title" id="currentDate">--</p>
+
+        <div class="card">
+            <div class="plan-label">Current plan</div>
+            <div class="plan-row">
+                <div>
+                    <div class="plan-name">Pro</div>
+                    <div class="plan-price">$20/mo</div>
+                    <div class="plan-reset" id="planResetMeta">Resets on <strong>--</strong></div>
+                </div>
+                <a class="btn-ghost" href="https://cursor.com/settings" target="_blank" rel="noopener">Manage</a>
+            </div>
+        </div>
+
+        <div id="usage-sync-slot" hidden aria-live="polite"></div>
+
+        <div class="card" id="usageCard">
+            <div class="section-label">Included in Pro · First-Party ↔ Cursor Models · API ↔ Other Models</div>
+
+            <div class="time-block">
+                <div class="usage-head">
+                    <span class="usage-name">Time progress</span>
+                    <span class="usage-pct" id="timeProgressText" style="color:var(--text)">--%</span>
+                </div>
+                <div class="bar-interactive" style="pointer-events:none">
+                    <div class="bar-visual">
+                        <div class="time-bar-fill" id="timeBarFill" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-block total-block has-ideal-label">
+                <div class="usage-head">
+                    <span class="usage-name">Total<span class="usage-sub">weighted</span></span>
+                    <span class="usage-pct" id="totalValue">--%</span>
+                </div>
+                <div class="bar-interactive" aria-hidden="true">
+                    <div class="bar-visual">
+                        <div class="ideal-marker with-label" id="totalIdeal" data-label="Ideal"></div>
+                        <div class="bar-fill readonly" id="totalBar"></div>
+                    </div>
+                </div>
+                <p class="pace-hint" id="compositionHint">--</p>
+            </div>
+
+            <div class="usage-block has-ideal-label">
+                <div class="usage-head">
+                    <span class="usage-name">First-Party<span class="usage-sub">Auto+Composer</span></span>
+                    <span class="usage-pct" id="autoValue">12%</span>
+                </div>
+                <div class="bar-interactive">
+                    <div class="bar-visual">
+                        <div class="ideal-marker with-label" id="autoIdeal" data-label="Ideal"></div>
+                        <div class="bar-fill" id="autoBar" style="width:12%"></div>
+                    </div>
+                    <input type="range" class="bar-slider" id="autoSlider" min="0" max="100" value="12" step="0.1" aria-label="Auto + Composer usage">
+                </div>
+            </div>
+
+            <div class="usage-block has-ideal-label">
+                <div class="usage-head">
+                    <span class="usage-name">API</span>
+                    <span class="usage-pct" id="apiValue">31%</span>
+                </div>
+                <div class="bar-interactive">
+                    <div class="bar-visual">
+                        <div class="ideal-marker with-label" id="apiIdeal" data-label="Ideal"></div>
+                        <div class="bar-fill" id="apiBar" style="width:31%"></div>
+                    </div>
+                    <input type="range" class="bar-slider" id="apiSlider" min="0" max="100" value="31" step="0.1" aria-label="API usage">
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">vs Ideal (Total)</div>
+                    <div class="stat-value" id="aheadDisplay">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">API share of Total</div>
+                    <div class="stat-value" id="apiContribDisplay">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Cycle time remaining</div>
+                    <div class="stat-value" id="timeRemainingDisplay">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Suggested daily avg (API)</div>
+                    <div class="stat-value" id="dailyApiRec">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="verdict-card" id="verdictCard">
+                <div class="verdict-title">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="verdictTitle">Evaluating…</span>
+                </div>
+                <div class="verdict-text" id="verdictText">--</div>
+            </div>
+        </div>
+
+        <nav class="manager-nav" aria-label="Manager switch">
+            <a href="cursor-usage-manager.html" class="active">Cursor</a>
+            <a href="gemini-quota-manager.html">Gemini</a>
+        </nav>
+
+        <div class="footer">
+            <button type="button" onclick="openSettings()">Edit reset time</button>
+            <button type="button" onclick="resetDefaults()">Restore default Auto 13% · API 31%</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h3>Billing cycle</h3>
+            <div class="form-group">
+                <label>Next reset time</label>
+                <input type="datetime-local" id="resetTimeInput">
+            </div>
+            <div class="form-group">
+                <label>Cycle length (days)</label>
+                <input type="number" id="cycleDaysInput" min="28" max="31" value="30">
+            </div>
+            <div class="form-group">
+                <label>Total weight Auto (default 3.5)</label>
+                <input type="number" id="weightAutoInput" min="0.1" max="20" step="0.1" value="3.5">
+            </div>
+            <div class="form-group">
+                <label>Total weight API (default 1)</label>
+                <input type="number" id="weightApiInput" min="0.1" max="20" step="0.1" value="1">
+            </div>
+            <button type="button" class="btn-primary" onclick="saveSettings()">Save</button>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE = {
+            reset: 'cursorNextResetTime',
+            cycleDays: 'cursorCycleDays',
+            auto: 'cursorUsageAuto',
+            api: 'cursorUsageApi',
+            weightAuto: 'cursorWeightAuto',
+            weightApi: 'cursorWeightApi',
+        };
+
+        /** Pro combined Total approximates Cursor Billing: Auto pool weighted higher, API lower (~7:2) */
+        const DEFAULT_WEIGHT_AUTO = 3.5;
+        const DEFAULT_WEIGHT_API = 1;
+
+        const DEFAULT_RESET = '2026-06-18T19:30';
+        const DEFAULT_CYCLE_DAYS = 30;
+        const DEFAULT_AUTO = 13;
+        const DEFAULT_API = 31;
+
+        let nextResetTimeStr = localStorage.getItem(STORAGE.reset) || DEFAULT_RESET;
+        let cycleDays = parseInt(localStorage.getItem(STORAGE.cycleDays) || String(DEFAULT_CYCLE_DAYS), 10);
+        let weightAuto = parseFloat(localStorage.getItem(STORAGE.weightAuto) || String(DEFAULT_WEIGHT_AUTO));
+        let weightApi = parseFloat(localStorage.getItem(STORAGE.weightApi) || String(DEFAULT_WEIGHT_API));
+
+        const metrics = {
+            auto: loadMetric('auto', DEFAULT_AUTO),
+            api: loadMetric('api', DEFAULT_API),
+        };
+
+        function loadMetric(key, fallback) {
+            const v = localStorage.getItem(STORAGE[key]);
+            return v !== null ? parseFloat(v) : fallback;
+        }
+
+        /**
+         * Total ≈ Cursor Billing weighted blend (not arithmetic mean)
+         * round( (Auto×W_auto + API×W_api) / (W_auto + W_api) )
+         * e.g. 13% Auto, 31% API, W=3.5:1 → (45.5+31)/4.5 = 17%
+         */
+        function computeTotalRaw() {
+            const wSum = weightAuto + weightApi;
+            if (wSum <= 0) return 0;
+            return (metrics.auto * weightAuto + metrics.api * weightApi) / wSum;
+        }
+
+        function computeTotal() {
+            return Math.round(computeTotalRaw());
+        }
+
+        /** Each component share of Total value (changes with sliders) */
+        function computeComposition() {
+            const auto = metrics.auto;
+            const api = metrics.api;
+            const total = computeTotal();
+            const weighted = metrics.auto * weightAuto + metrics.api * weightApi;
+            if (weighted <= 0) {
+                return {
+                    total,
+                    weighted: 0,
+                    autoContrib: 0.5,
+                    apiContrib: 0.5,
+                    apiPctOfTotal: 0,
+                    simpleAvg: 0,
+                };
+            }
+            return {
+                total,
+                weighted,
+                autoContrib: (auto * weightAuto) / weighted,
+                apiContrib: (api * weightApi) / weighted,
+                apiPctOfTotal: total > 0 ? (api / total) * 100 : 0,
+                simpleAvg: (auto + api) / 2,
+            };
+        }
+
+        /**
+         * Ideal line split by Auto/API weights + current usage ratio
+         * Constraint: (autoIdeal x Wa + apiIdeal x Wb) / (Wa+Wb) = T
+         * Split ideals by current auto:api ratio; Auto weight higher so ideal is lower
+         */
+        function computeIdeals(cycleTarget) {
+            const T = Math.min(100, Math.max(0, cycleTarget));
+            const wSum = weightAuto + weightApi;
+            if (wSum <= 0) return { total: T, auto: T, api: T };
+
+            const autoVal = metrics.auto;
+            const apiVal = metrics.api;
+
+            // Both zero: split inversely by weight
+            if (autoVal <= 0 && apiVal <= 0) {
+                const apiI = T * wSum / (weightAuto + weightApi);
+                return { total: T, auto: Math.min(100, apiI), api: Math.min(100, apiI) };
+            }
+
+            // Only one side in use
+            if (apiVal <= 0) {
+                return { total: T, auto: Math.min(100, T * wSum / weightAuto), api: 0 };
+            }
+            if (autoVal <= 0) {
+                return { total: T, auto: 0, api: Math.min(100, T * wSum / weightApi) };
+            }
+
+            // Split by current auto/api ratio
+            const ratio = autoVal / apiVal;
+            const apiIdeal = (T * wSum) / (ratio * weightAuto + weightApi);
+            const autoIdeal = ratio * apiIdeal;
+
+            return {
+                total: T,
+                auto: Math.min(100, Math.max(0, autoIdeal)),
+                api: Math.min(100, Math.max(0, apiIdeal)),
+            };
+        }
+
+        function bindSlider(id, key) {
+            const slider = document.getElementById(id);
+            slider.value = metrics[key];
+            slider.addEventListener('input', () => {
+                metrics[key] = parseFloat(slider.value);
+                localStorage.setItem(STORAGE[key], metrics[key]);
+                updateDashboard();
+            });
+        }
+
+        bindSlider('autoSlider', 'auto');
+        bindSlider('apiSlider', 'api');
+
+        function clampMetric(n) {
+            const v = Math.round(Number(n) * 10) / 10;
+            return Math.max(0, Math.min(100, v));
+        }
+
+        /** Called by Usage Sync extension for official Billing (First-Party→auto, API Usage→api) */
+        window.applyCursorSync = function applyCursorSync(data) {
+            if (!data || typeof data !== 'object') return;
+            if (data.auto != null && Number.isFinite(Number(data.auto))) {
+                metrics.auto = clampMetric(data.auto);
+                localStorage.setItem(STORAGE.auto, metrics.auto);
+                const s = document.getElementById('autoSlider');
+                if (s) s.value = metrics.auto;
+            }
+            if (data.api != null && Number.isFinite(Number(data.api))) {
+                metrics.api = clampMetric(data.api);
+                localStorage.setItem(STORAGE.api, metrics.api);
+                const s = document.getElementById('apiSlider');
+                if (s) s.value = metrics.api;
+            }
+            if (data.reset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.reset)) {
+                nextResetTimeStr = data.reset.slice(0, 16);
+                localStorage.setItem(STORAGE.reset, nextResetTimeStr);
+            }
+            updateDashboard();
+        };
+
+        const dateOpts = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        const resetOpts = { month: 'numeric', day: 'numeric' };
+
+        function getCycleBounds(now = new Date()) {
+            const nextReset = new Date(nextResetTimeStr);
+            if (isNaN(nextReset.getTime())) nextReset.setTime(Date.now() + cycleDays * 86400000);
+            while (nextReset <= now) nextReset.setDate(nextReset.getDate() + cycleDays);
+            const prevReset = new Date(nextReset.getTime() - cycleDays * 86400000);
+            const elapsedMs = Math.max(0, now - prevReset);
+            const remainingMs = Math.max(0, nextReset - now);
+            const cycleTarget = (elapsedMs / (nextReset - prevReset)) * 100;
+            return { nextReset, prevReset, cycleTarget, remainingMs, daysLeft: remainingMs / 86400000 };
+        }
+
+        function metricColor(usage, ideal) {
+            if (usage >= 100) return 'var(--red)';
+            if (usage > ideal) return 'var(--yellow)';
+            return 'var(--green)';
+        }
+
+        function dailyCap(usage, daysLeft) {
+            if (daysLeft <= 0.05) return 0;
+            return Math.max(0, (100 - usage) / daysLeft);
+        }
+
+        function setIdealMarker(id, pct) {
+            const el = document.getElementById(id);
+            if (el) el.style.left = Math.min(100, Math.max(0, pct)) + '%';
+        }
+
+        function fmtPct(n) {
+            const v = Number(n);
+            if (!Number.isFinite(v)) return '--';
+            return Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : (Math.round(v * 10) / 10).toFixed(1);
+        }
+
+        function deltaTip(usage, ideal) {
+            const d = usage - ideal;
+            if (usage >= 100) return { text: 'Exhausted', cls: 'over' };
+            if (d > 0.05) return { text: `Ahead ${fmtPct(d)}%`, cls: 'over' };
+            if (d < -0.05) return { text: `Behind ${fmtPct(Math.abs(d))}%`, cls: 'under' };
+            return { text: 'On track', cls: 'ok' };
+        }
+
+        function applyMetric(key, usage, ideal, { readonly = false } = {}) {
+            const color = metricColor(usage, ideal);
+            const pctEl = document.getElementById(`${key}Value`);
+            const tip = deltaTip(usage, ideal);
+            pctEl.innerHTML = `${fmtPct(usage)}%<span class="delta ${tip.cls}">${tip.text}</span>`;
+            pctEl.style.color = color;
+
+            const bar = document.getElementById(`${key}Bar`);
+            bar.style.width = Math.min(100, Math.max(0, usage)) + '%';
+            bar.className = 'bar-fill' + (readonly ? ' readonly' : '');
+            bar.style.background = color;
+
+            const slider = document.getElementById(`${key}Slider`);
+            if (slider) slider.style.setProperty('--metric-color', color);
+        }
+
+        /**
+         * Over-limit: Ideal line = ideal usage derived from time progress.
+         * Any usage > ideal is ahead of pace; show ahead amount and daily caps.
+         */
+        function buildVerdict(items, cycleTarget, daysLeft, dailyApi, dailyAuto, comp) {
+            const daysText = daysLeft >= 1
+                ? `${Math.floor(daysLeft)}d ${Math.floor((daysLeft % 1) * 24)}h`
+                : 'Less than 1 day';
+
+            const rows = items.map((it) => {
+                const tip = deltaTip(it.value, it.ideal);
+                return `${it.label} <strong>${fmtPct(it.value)}%</strong> / Ideal <strong>${fmtPct(it.ideal)}%</strong>（${tip.text}）`;
+            });
+
+            const exhausted = items.find((it) => it.value >= 100);
+            if (exhausted) {
+                return {
+                    title: 'Quota exhausted',
+                    color: 'var(--red)',
+                    pulse: false,
+                    text: `${exhausted.label} reached 100%. Wait for reset or check Billing.<br>${rows.join('<br>')}`,
+                };
+            }
+
+            const overs = items.filter((it) => it.value > it.ideal + 0.05);
+            if (overs.length) {
+                const worst = overs.slice().sort((a, b) => (b.value - b.ideal) - (a.value - a.ideal))[0];
+                const ahead = worst.value - worst.ideal;
+                return {
+                    title: `Ahead of pace · ${worst.label} ahead ${fmtPct(ahead)}%`,
+                    color: 'var(--yellow)',
+                    pulse: false,
+                    text:
+                        `Rule: usage &gt; Ideal line (Ideal advances with <strong>time progress ${fmtPct(cycleTarget)}%</strong>).<br>` +
+                        `${rows.join('<br>')}<br>` +
+                        `${daysText} left · Suggested First-Party daily ≤ <strong>${dailyAuto.toFixed(1)}%</strong>, API daily ≤ <strong>${dailyApi.toFixed(1)}%</strong>。`,
+                };
+            }
+
+            const best = items.slice().sort((a, b) => (a.value - a.ideal) - (b.value - b.ideal))[0];
+            return {
+                title: 'On pace',
+                color: 'var(--green)',
+                pulse: true,
+                text:
+                    `Rule: all items ≤ Ideal line (on time progress <strong>${fmtPct(cycleTarget)}%</strong>).<br>` +
+                    `${rows.join('<br>')}<br>` +
+                    `Total weighted <strong>${comp.total}%</strong> · ${daysText} left.`,
+            };
+        }
+
+        function updateDashboard() {
+            const now = new Date();
+            const { nextReset, cycleTarget, remainingMs, daysLeft } = getCycleBounds(now);
+            const total = computeTotal();
+            const comp = computeComposition();
+            const ideals = computeIdeals(cycleTarget);
+            const idealCapped = Math.min(100, cycleTarget);
+            const daysCeil = Math.max(1, Math.ceil(daysLeft));
+
+            document.getElementById('currentDate').textContent =
+                now.toLocaleString('en-US', dateOpts) + ' · Next reset ' + nextReset.toLocaleString('en-US', dateOpts);
+            document.getElementById('planResetMeta').innerHTML =
+                `Resets on <strong>${nextReset.toLocaleDateString('en-US', resetOpts)} (${daysCeil} days)</strong>`;
+
+            document.getElementById('timeProgressText').textContent = cycleTarget.toFixed(1) + '%';
+            document.getElementById('timeBarFill').style.width = idealCapped + '%';
+
+            setIdealMarker('totalIdeal', ideals.total);
+            setIdealMarker('autoIdeal', ideals.auto);
+            setIdealMarker('apiIdeal', ideals.api);
+
+            const autoIdealEl = document.getElementById('autoIdeal');
+            if (autoIdealEl) autoIdealEl.setAttribute('data-label', 'Ideal ' + ideals.auto.toFixed(1) + '%');
+            const apiIdealEl = document.getElementById('apiIdeal');
+            if (apiIdealEl) apiIdealEl.setAttribute('data-label', 'Ideal ' + ideals.api.toFixed(1) + '%');
+            const totalIdealEl = document.getElementById('totalIdeal');
+            if (totalIdealEl) totalIdealEl.setAttribute('data-label', 'Ideal ' + ideals.total.toFixed(1) + '%');
+
+            const rawTotal = computeTotalRaw();
+            document.getElementById('compositionHint').innerHTML =
+                `Billing：Total ≈ round(<strong>${rawTotal.toFixed(2)}%</strong>) = (First-Party×${weightAuto} + API×${weightApi}) / ${weightAuto + weightApi}<br>` +
+                `Over-limit rule: usage &gt; black Ideal line turns yellow. Time progress <strong>${cycleTarget.toFixed(1)}%</strong> → Total Ideal <strong>${ideals.total.toFixed(1)}%</strong>, ` +
+                `First-Party Ideal <strong>${ideals.auto.toFixed(1)}%</strong>, API Ideal <strong>${ideals.api.toFixed(1)}%</strong>`;
+
+            applyMetric('total', total, ideals.total, { readonly: true });
+            applyMetric('auto', metrics.auto, ideals.auto);
+            applyMetric('api', metrics.api, ideals.api);
+
+            const rDays = Math.floor(remainingMs / 86400000);
+            const rHours = Math.floor((remainingMs % 86400000) / 3600000);
+            document.getElementById('timeRemainingDisplay').textContent = `${rDays}d ${rHours}h`;
+            document.getElementById('apiContribDisplay').textContent = (comp.apiContrib * 100).toFixed(1) + '%';
+
+            const totalAhead = total - ideals.total;
+            const aheadEl = document.getElementById('aheadDisplay');
+            if (totalAhead > 0.05) {
+                aheadEl.textContent = `Ahead ${fmtPct(totalAhead)}%`;
+                aheadEl.style.color = 'var(--yellow)';
+            } else if (totalAhead < -0.05) {
+                aheadEl.textContent = `Behind ${fmtPct(Math.abs(totalAhead))}%`;
+                aheadEl.style.color = 'var(--green)';
+            } else {
+                aheadEl.textContent = 'On track';
+                aheadEl.style.color = 'var(--green)';
+            }
+
+            const dailyApi = dailyCap(metrics.api, daysLeft);
+            const dailyAuto = dailyCap(metrics.auto, daysLeft);
+            document.getElementById('dailyApiRec').textContent = dailyApi.toFixed(1) + '%';
+
+            const items = [
+                { label: 'API', value: metrics.api, ideal: ideals.api },
+                { label: 'First-Party', value: metrics.auto, ideal: ideals.auto },
+                { label: 'Total', value: total, ideal: ideals.total },
+            ];
+            const verdict = buildVerdict(items, cycleTarget, daysLeft, dailyApi, dailyAuto, comp);
+
+            const card = document.getElementById('verdictCard');
+            const dot = document.getElementById('statusDot');
+            document.getElementById('verdictTitle').textContent = verdict.title;
+            document.getElementById('verdictText').innerHTML = verdict.text;
+            card.style.borderLeftColor = verdict.color;
+            card.style.background = `linear-gradient(90deg, ${verdict.color}18 0%, transparent 100%)`;
+            dot.style.backgroundColor = verdict.color;
+            dot.classList.toggle('pulse', verdict.pulse);
+        }
+
+        function openSettings() {
+            document.getElementById('resetTimeInput').value = nextResetTimeStr;
+            document.getElementById('cycleDaysInput').value = cycleDays;
+            document.getElementById('weightAutoInput').value = weightAuto;
+            document.getElementById('weightApiInput').value = weightApi;
+            document.getElementById('settingsModal').classList.add('active');
+        }
+
+        function saveSettings() {
+            const t = document.getElementById('resetTimeInput').value;
+            const d = parseInt(document.getElementById('cycleDaysInput').value, 10);
+            const wa = parseFloat(document.getElementById('weightAutoInput').value);
+            const wb = parseFloat(document.getElementById('weightApiInput').value);
+            if (t) {
+                nextResetTimeStr = t;
+                localStorage.setItem(STORAGE.reset, nextResetTimeStr);
+            }
+            if (d >= 28 && d <= 31) {
+                cycleDays = d;
+                localStorage.setItem(STORAGE.cycleDays, String(cycleDays));
+            }
+            if (wa > 0 && wb > 0) {
+                weightAuto = wa;
+                weightApi = wb;
+                localStorage.setItem(STORAGE.weightAuto, String(weightAuto));
+                localStorage.setItem(STORAGE.weightApi, String(weightApi));
+            }
+            document.getElementById('settingsModal').classList.remove('active');
+            updateDashboard();
+        }
+
+        function resetDefaults() {
+            metrics.auto = DEFAULT_AUTO;
+            metrics.api = DEFAULT_API;
+            weightAuto = DEFAULT_WEIGHT_AUTO;
+            weightApi = DEFAULT_WEIGHT_API;
+            nextResetTimeStr = DEFAULT_RESET;
+            cycleDays = DEFAULT_CYCLE_DAYS;
+            localStorage.setItem(STORAGE.reset, nextResetTimeStr);
+            localStorage.setItem(STORAGE.cycleDays, String(cycleDays));
+            localStorage.setItem(STORAGE.auto, metrics.auto);
+            localStorage.setItem(STORAGE.api, metrics.api);
+            localStorage.setItem(STORAGE.weightAuto, String(weightAuto));
+            localStorage.setItem(STORAGE.weightApi, String(weightApi));
+            localStorage.removeItem('cursorUsageTotal');
+            document.getElementById('autoSlider').value = metrics.auto;
+            document.getElementById('apiSlider').value = metrics.api;
+            updateDashboard();
+        }
+
+        document.getElementById('settingsModal').addEventListener('click', (e) => {
+            if (e.target.id === 'settingsModal') e.target.classList.remove('active');
+        });
+
+        setInterval(updateDashboard, 1000);
+        updateDashboard();
+    </script>
+</body>
+</html>

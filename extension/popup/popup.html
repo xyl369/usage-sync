@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Usage Sync</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a222c;
+      --text: #e7ecf1;
+      --muted: #8b98a5;
+      --green: #22c55e;
+      --indigo: #818cf8;
+      --line: #2a3441;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 340px;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 14px;
+    }
+    h1 { font-size: 14px; font-weight: 650; margin-bottom: 10px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .row { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }
+    .val { font-variant-numeric: tabular-nums; }
+    .ok { color: var(--green); }
+    .wait { color: #f59e0b; }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .hint ol { padding-left: 18px; margin: 6px 0; }
+    .hint li { margin: 4px 0; }
+    code {
+      font-size: 11px;
+      background: #0b1016;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #c4d0dc;
+    }
+    button {
+      width: 100%;
+      margin-top: 8px;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      background: #243041;
+      color: var(--text);
+    }
+    button:hover { background: #2d3c50; }
+    a { color: var(--indigo); }
+  </style>
+</head>
+<body>
+  <h1>Usage Sync · Cursor & Gemini <span id="buildTag" style="font-weight:400;color:var(--muted);font-size:11px"></span></h1>
+
+  <div class="card">
+    <div class="label">Cursor</div>
+    <div id="cursorStatus" class="wait">Not synced yet</div>
+    <div id="cursorDetail" class="hint" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Gemini</div>
+    <div id="geminiStatus" class="wait">Not synced yet</div>
+    <div id="geminiDetail" class="hint" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card hint">
+    <strong style="color:var(--text)">First-time setup</strong>
+    <ol>
+      <li>Open <code>chrome://extensions</code> → Load unpacked extension</li>
+      <li>Open extension details → Enable “Allow access to file URLs”</li>
+      <li>Hard-refresh <a href="https://cursor.com/dashboard/spending" target="_blank">Cursor Spending</a> (or Billing) and <a href="https://gemini.google.com/usage" target="_blank">Gemini Usage</a>; a green “Synced” toast should appear in the bottom-right</li>
+      <li>Then open the local manager HTML (aligned status appears below the plan card)</li>
+    </ol>
+  </div>
+
+  <button type="button" id="refreshBtn">Refresh status</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>
