@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Usage Sync</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --paper: #fffcf7;
+      --ink: #1c1916;
+      --muted: #6f6860;
+      --faint: #9a9288;
+      --line: rgba(28, 25, 22, 0.08);
+      --track: #e4ddd2;
+      --accent: #c45c3e;
+      --green: #2f6b52;
+      --green-fill: #3d8a68;
+      --yellow: #9a6700;
+      --yellow-fill: #c9a227;
+      --red: #b42318;
+      --red-fill: #d92d20;
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Noto Serif SC", serif;
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      color-scheme: light;
+    }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    .page {
+      height: 100%;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 18px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      flex: 0 0 auto;
+    }
+    .top h1 {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .top-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      flex: 0 0 auto;
+    }
+    .lang {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+    }
+    .lang:hover { color: var(--ink); }
+    .clock {
+      font-size: 12px;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    #usage-sync-slot { flex: 0 0 auto; }
+    #usage-sync-slot[hidden] { display: none; }
+    .usage-sync-banner {
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #efe8dc;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .usage-sync-banner.is-ok {
+      background: #e8f3ec;
+      color: var(--green);
+    }
+    .usage-sync-banner.is-wait {
+      background: #f4eee4;
+      color: var(--yellow);
+    }
+
+    .pulse {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+    .pulse button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      padding: 12px 12px 11px;
+      border-radius: 16px;
+      cursor: pointer;
+      position: relative;
+    }
+    .pulse button.on {
+      background: var(--paper);
+      box-shadow: 0 1px 0 var(--line), 0 10px 28px rgba(28, 25, 22, 0.06);
+    }
+    .pulse button.on::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 0;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+    }
+    .pulse .k {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
+    }
+    .pulse .v {
+      font-size: 20px;
+      font-weight: 590;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+    }
+    .pulse .s { font-size: 11px; margin-top: 4px; color: var(--muted); }
+
+    .stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .board {
+      background: var(--paper);
+      border-radius: 22px;
+      padding: 20px 22px 18px;
+      display: none;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      box-shadow: 0 1px 0 var(--line), 0 18px 40px rgba(28, 25, 22, 0.05);
+    }
+    .board.show { display: flex; }
+
+    .board-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+      flex: 0 0 auto;
+    }
+    .board-head h2 {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+    }
+    .legend { font-size: 12px; color: var(--faint); margin-top: 3px; }
+    .head-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 0 0 auto;
+      padding-top: 2px;
+    }
+    .open, .gear {
+      color: var(--accent);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 4px 2px;
+      cursor: pointer;
+    }
+    .open:hover, .gear:hover { opacity: 0.72; }
+    .gear {
+      appearance: none;
+      border: 0;
+      background: transparent;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 4px 0 12px;
+      flex: 0 0 auto;
+    }
+    .hero-num {
+      font-size: clamp(40px, 7.2vh, 64px);
+      font-weight: 560;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.05em;
+      line-height: 0.92;
+    }
+    .hero-delta { font-size: 13px; font-weight: 600; margin-top: 8px; }
+    .hero-delta.ok, .hero-delta.under { color: var(--green); }
+    .hero-delta.over { color: var(--yellow); }
+    .hero-delta.dead { color: var(--red); }
+    .hero-meta { text-align: right; color: var(--muted); font-size: 12px; line-height: 1.45; padding-bottom: 4px; }
+    .hero-meta b { color: var(--ink); font-weight: 600; }
+
+    .metric { margin-bottom: 10px; flex: 0 0 auto; }
+    .metric-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+    .metric-name { font-size: 12px; color: var(--muted); }
+    .metric-val {
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .hint { font-size: 11px; color: var(--faint); margin-top: 6px; }
+
+    .track {
+      position: relative;
+      height: 5px;
+      background: var(--track);
+      border-radius: 99px;
+    }
+    .fill { height: 100%; border-radius: 99px; width: 0; }
+    .mark {
+      position: absolute;
+      top: -5px;
+      width: 2px;
+      height: 15px;
+      background: var(--ink);
+      border-radius: 1px;
+      transform: translateX(-1px);
+    }
+    .hit { position: relative; height: 26px; margin-top: -12px; }
+    .hit input[type=range] {
+      position: absolute; inset: 0; width: 100%; margin: 0;
+      opacity: 0; cursor: pointer; appearance: none;
+    }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 2px 0 8px;
+      flex: 0 0 auto;
+    }
+    .mini-name { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+    .facts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin-top: auto;
+      border-top: 1px solid var(--line);
+      flex: 0 0 auto;
+    }
+    .fact {
+      padding: 10px 0 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .fact:nth-child(odd) { padding-right: 14px; }
+    .fact:nth-child(even) { padding-left: 14px; border-left: 1px solid var(--line); }
+    .fact-k { font-size: 11px; color: var(--faint); margin-bottom: 3px; }
+    .fact-v { font-size: 15px; font-weight: 590; font-variant-numeric: tabular-nums; }
+
+    .verdict {
+      margin-top: 10px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--muted);
+      flex: 0 0 auto;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .verdict b { color: var(--ink); font-weight: 600; }
+    .verdict .dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      margin-right: 6px; vertical-align: 1px;
+    }
+
+    .sheet {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(28, 25, 22, 0.32);
+      z-index: 40;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .sheet.on { display: flex; }
+    .sheet-card {
+      width: min(440px, 100%);
+      max-height: 82vh;
+      overflow: auto;
+      background: var(--paper);
+      border-radius: 20px 20px 0 0;
+      padding: 22px 22px 28px;
+    }
+    .sheet-card h3 {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+    input, select {
+      width: 100%;
+      font: inherit;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+    }
+    .save {
+      margin-top: 16px;
+      width: 100%;
+      border: 0;
+      background: var(--ink);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      padding: 11px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .sheet-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 10px; }
+
+    @media (min-width: 760px) {
+      .page { padding: 28px 32px; gap: 16px; }
+      .pulse { display: none; }
+      .stage {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .board { display: flex !important; }
+      .hero-num { font-size: clamp(36px, 5.6vw, 56px); }
+    }
+    @media (max-height: 700px) {
+      .hero-num { font-size: 40px; }
+      .board { padding: 16px 18px 14px; }
+      .facts { margin-top: 8px; }
+    }
+  </style>
+</head>
+<body id="usage-dashboard">
+  <div class="page">
+    <div class="top">
+      <h1 data-i18n="title">Usage</h1>
+      <div class="top-meta">
+        <button type="button" class="lang" id="langBtn">中文</button>
+        <span class="clock" id="clock">--</span>
+      </div>
+    </div>
+    <div id="usage-sync-slot" hidden aria-live="polite"></div>
+
+    <div class="pulse" role="tablist">
+      <button type="button" role="tab" data-panel="cursor" class="on">
+        <div class="k">Cursor</div>
+        <div class="v" id="pC">--</div>
+        <div class="s" id="pCs"></div>
+      </button>
+      <button type="button" role="tab" data-panel="gemini">
+        <div class="k">Gemini</div>
+        <div class="v" id="pG">--</div>
+        <div class="s" id="pGs"></div>
+      </button>
+    </div>
+
+    <div class="stage">
+      <section class="board show" id="cursor">
+        <div class="board-head">
+          <div>
+            <h2>Cursor</h2>
+            <div class="legend" data-i18n="cLegend">Black mark is ideal usage now</div>
+          </div>
+          <div class="head-actions">
+            <a class="open" href="https://www.cursor.com/dashboard/billing" target="_blank" rel="noopener" data-i18n="openUsage">Usage</a>
+            <button class="gear" type="button" data-sheet="sheet-c" data-i18n="settings">Settings</button>
+          </div>
+        </div>
+        <div class="hero">
+          <div>
+            <div class="hero-num" id="cHero">--</div>
+            <div class="hero-delta" id="cHeroDelta"></div>
+          </div>
+          <div class="hero-meta"><span data-i18n="cHeroMeta">Weighted total</span><br><span data-i18n="elapsed">Elapsed</span> <b id="cTime">--</b></div>
+        </div>
+        <div class="metric">
+          <div class="track"><div class="fill" id="cTotalFill"></div><div class="mark" id="cTotalMark"></div></div>
+        </div>
+        <div class="pair">
+          <div>
+            <div class="mini-name" data-i18n="cAuto">Cursor Models</div>
+            <div class="track"><div class="fill" id="cAutoFill"></div><div class="mark" id="cAutoMark"></div></div>
+            <div class="hit"><input type="range" id="autoSlider" min="0" max="100" step="0.1"></div>
+          </div>
+          <div>
+            <div class="mini-name" data-i18n="cApi">Other Models</div>
+            <div class="track"><div class="fill" id="cApiFill"></div><div class="mark" id="cApiMark"></div></div>
+            <div class="hit"><input type="range" id="apiSlider" min="0" max="100" step="0.1"></div>
+          </div>
+        </div>
+        <div class="facts">
+          <div class="fact"><div class="fact-k" data-i18n="pace">Pace</div><div class="fact-v" id="cPace">--</div></div>
+          <div class="fact"><div class="fact-k" data-i18n="cShare">Other Models share</div><div class="fact-v" id="cShare">--</div></div>
+          <div class="fact"><div class="fact-k" data-i18n="cLeft">Cycle remaining</div><div class="fact-v" id="cLeft">--</div></div>
+          <div class="fact"><div class="fact-k" data-i18n="cDaily">Suggested daily Other</div><div class="fact-v" id="cDaily">--</div></div>
+        </div>
+        <p class="verdict" id="cVerdict"></p>
+      </section>
+
+      <section class="board" id="gemini">
+        <div class="board-head">
+          <div>
+            <h2>Gemini</h2>
+            <div class="legend" data-i18n="gLegend">Weekly quota is draggable · 5-hour window is read-only</div>
+          </div>
+          <div class="head-actions">
+            <a class="open" href="https://gemini.google.com/usage" target="_blank" rel="noopener" data-i18n="openUsage">Usage</a>
+            <button class="gear" type="button" data-sheet="sheet-g" data-i18n="settings">Settings</button>
+          </div>
+        </div>
+        <div class="hero">
+          <div>
+            <div class="hero-num" id="gHero">--</div>
+            <div class="hero-delta" id="gHeroDelta"></div>
+          </div>
+          <div class="hero-meta"><span data-i18n="gHeroMeta">Weekly quota</span><br><span data-i18n="elapsed">Elapsed</span> <b id="gTime">--</b></div>
+        </div>
+        <div class="metric">
+          <div class="track"><div class="fill" id="gWeekFill"></div><div class="mark" id="gWeekMark"></div></div>
+          <div class="hit"><input type="range" id="weeklyUsageSlider" min="0" max="100" step="1"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-head">
+            <span class="metric-name" data-i18n="gShort">5-hour window</span>
+            <span class="metric-val" id="shortUsageText">--</span>
+          </div>
+          <div class="track"><div class="fill" id="gShortFill" style="background:#c45c3e"></div></div>
+          <p class="hint" id="gShortHint"></p>
+        </div>
+        <div class="facts">
+          <div class="fact"><div class="fact-k" data-i18n="pace">Pace</div><div class="fact-v" id="gPace">--</div></div>
+          <div class="fact"><div class="fact-k" data-i18n="gReset">Window refresh</div><div class="fact-v" id="gReset">--</div></div>
+          <div class="fact"><div class="fact-k" data-i18n="gLeft">Week remaining</div><div class="fact-v" id="gLeft">--</div></div>
+          <div class="fact"><div class="fact-k" data-i18n="gUses">Full-window uses left</div><div class="fact-v" id="gUses">--</div></div>
+        </div>
+        <p class="verdict" id="gVerdict"></p>
+      </section>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet-c">
+    <div class="sheet-card">
+      <h3 data-i18n="cSheet">Cursor cycle</h3>
+      <label data-i18n="cReset">Next reset</label>
+      <input type="datetime-local" id="cReset">
+      <label data-i18n="cDays">Cycle days</label>
+      <input type="number" id="cDays" min="1" max="90">
+      <label data-i18n="cWa">Cursor Models weight</label>
+      <input type="number" id="cWa" step="0.1">
+      <label data-i18n="cWb">Other Models weight</label>
+      <input type="number" id="cWb" step="0.1">
+      <p class="sheet-note" data-i18n="cNote">Total is a weighted blend. Yellow means usage is ahead of the black mark.</p>
+      <button class="save" type="button" data-save="c" data-i18n="save">Save</button>
+    </div>
+  </div>
+  <div class="sheet" id="sheet-g">
+    <div class="sheet-card">
+      <h3 data-i18n="gSheet">Gemini cycle</h3>
+      <label data-i18n="gWeekAnchor">Weekly reset anchor (every 7 days)</label>
+      <input type="datetime-local" id="gWeekAnchor">
+      <label data-i18n="gShortAnchor">Next 5-hour window refresh</label>
+      <input type="datetime-local" id="gShortAnchor">
+      <label data-i18n="gCost">Weekly % deducted per full window</label>
+      <select id="gCost">
+        <option value="5">5%</option>
+        <option value="10">10%</option>
+        <option value="4">4%</option>
+      </select>
+      <button class="save" type="button" data-save="g" data-i18n="save">Save</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const MS_H = 36e5, MS_DAY = 864e5;
+  const PANEL_KEY = 'usageSyncPanel';
+  const LANG_KEY = 'usageSyncLang';
+
+  const C = {
+    reset: 'cursorNextResetTime', cycleDays: 'cursorCycleDays',
+    auto: 'cursorUsageAuto', api: 'cursorUsageApi',
+    wA: 'cursorWeightAuto', wB: 'cursorWeightApi',
+  };
+  const G = {
+    week: 'geminiCurrentUsage', short: 'geminiShortUsage',
+    weekReset: 'geminiBaseResetTime', shortReset: 'geminiShortResetTime',
+    cost: 'geminiPerCycleCost',
+  };
+
+  const I18N = {
+    en: {
+      title: 'Usage',
+      cLegend: 'Black mark is ideal usage now',
+      gLegend: 'Weekly quota is draggable · 5-hour window is read-only',
+      openUsage: 'Usage',
+      settings: 'Settings',
+      cHeroMeta: 'Weighted total',
+      gHeroMeta: 'Weekly quota',
+      elapsed: 'Elapsed',
+      cAuto: 'Cursor Models',
+      cApi: 'Other Models',
+      pace: 'Pace',
+      cShare: 'Other Models share',
+      cLeft: 'Cycle remaining',
+      cDaily: 'Suggested daily Other',
+      gShort: '5-hour window',
+      gReset: 'Window refresh',
+      gLeft: 'Week remaining',
+      gUses: 'Full-window uses left',
+      cSheet: 'Cursor cycle',
+      gSheet: 'Gemini cycle',
+      cReset: 'Next reset',
+      cDays: 'Cycle days',
+      cWa: 'Cursor Models weight',
+      cWb: 'Other Models weight',
+      cNote: 'Total is a weighted blend. Yellow means usage is ahead of the black mark.',
+      gWeekAnchor: 'Weekly reset anchor (every 7 days)',
+      gShortAnchor: 'Next 5-hour window refresh',
+      gCost: 'Weekly % deducted per full window',
+      save: 'Save',
+      notSynced: 'Not synced',
+      exhausted: 'Exhausted',
+      onPace: 'On pace',
+      ahead: 'Ahead {0}%',
+      behind: 'Behind {0}%',
+      dh: '{0}d {1}h',
+      shortHint: 'Next refresh {0} · each full window uses {1}%',
+      cQuotaOut: 'Quota exhausted',
+      cAhead: 'Ahead of pace',
+      cOk: 'On pace',
+      gQuotaOut: 'Weekly quota exhausted',
+      gAhead: 'Ahead of pace',
+      gOk: 'On pace',
+      remaining: 'remaining',
+      ideal: 'Ideal',
+    },
+    zh: {
+      title: '用量',
+      cLegend: '黑标为此刻应耗用量',
+      gLegend: '周配额可拖 · 五小时窗只读',
+      openUsage: '用量',
+      settings: '设置',
+      cHeroMeta: '加权合计',
+      gHeroMeta: '周配额',
+      elapsed: '已过',
+      cAuto: 'Cursor 模型',
+      cApi: '其他模型',
+      pace: '相对节奏',
+      cShare: '其他模型占比',
+      cLeft: '本周期剩余',
+      cDaily: '建议日均其他',
+      gShort: '五小时窗',
+      gReset: '窗刷新',
+      gLeft: '本周剩余',
+      gUses: '剩余满额次数',
+      cSheet: 'Cursor 周期',
+      gSheet: 'Gemini 周期',
+      cReset: '下次重置',
+      cDays: '周期天数',
+      cWa: 'Cursor 模型权重',
+      cWb: '其他模型权重',
+      cNote: '合计按权重折算，超过黑标变黄。',
+      gWeekAnchor: '周配额重置锚点（每 7 天）',
+      gShortAnchor: '5 小时窗下次刷新',
+      gCost: '每次满额扣除周配额 %',
+      save: '保存',
+      notSynced: '未同步',
+      exhausted: '已耗尽',
+      onPace: '贴线',
+      ahead: '超前 {0}%',
+      behind: '滞后 {0}%',
+      dh: '{0}天 {1}小时',
+      shortHint: '下次刷新 {0} · 每满额扣 {1}%',
+      cQuotaOut: '配额耗尽',
+      cAhead: '超前于节奏',
+      cOk: '节奏正常',
+      gQuotaOut: '周配额耗尽',
+      gAhead: '超前于节奏',
+      gOk: '节奏正常',
+      remaining: '剩余',
+      ideal: '合理线',
+    },
+  };
+
+  const PREVIEW = new URLSearchParams(location.search).get('preview') === '1';
+  const previewStore = PREVIEW ? {
+    cursorUsageAuto: '42',
+    cursorUsageApi: '18',
+    cursorNextResetTime: '2026-09-22T19:00',
+    geminiCurrentUsage: '31',
+    geminiShortUsage: '12',
+    geminiBaseResetTime: '2026-09-06T13:00',
+    geminiShortResetTime: '2026-09-02T18:00',
+    usageSyncLang: 'en',
+  } : null;
+
+  let lang = (previewStore && previewStore[LANG_KEY]) || localStorage.getItem(LANG_KEY);
+  if (lang !== 'en' && lang !== 'zh') {
+    lang = /^\s*zh/i.test(navigator.language || '') ? 'zh' : 'en';
+  }
+
+  function t(key) {
+    const pack = I18N[lang] || I18N.en;
+    return pack[key] || I18N.en[key] || key;
+  }
+  function tf(key) {
+    let s = t(key);
+    for (let i = 1; i < arguments.length; i++) s = s.replace('{' + (i - 1) + '}', arguments[i]);
+    return s;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中文';
+  }
+
+  function num(key, fb) {
+    if (previewStore && previewStore[key] != null) return parseFloat(previewStore[key]);
+    const v = localStorage.getItem(key);
+    return v === null ? fb : parseFloat(v);
+  }
+  function str(key, fb) {
+    if (previewStore && previewStore[key] != null) return previewStore[key];
+    return localStorage.getItem(key) || fb;
+  }
+  function set(key, v) { localStorage.setItem(key, String(v)); }
+  function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+  function fmtPct(n) {
+    if (!Number.isFinite(n)) return '--';
+    return Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : (Math.round(n * 10) / 10).toFixed(1);
+  }
+  function tone(usage, ideal) {
+    if (usage >= 100) return 'var(--red-fill)';
+    if (usage > ideal + 0.05) return 'var(--yellow-fill)';
+    return 'var(--green-fill)';
+  }
+  function ink(usage, ideal) {
+    if (usage >= 100) return 'var(--red)';
+    if (usage > ideal + 0.05) return 'var(--yellow)';
+    return 'var(--green)';
+  }
+  function delta(usage, ideal) {
+    const d = usage - ideal;
+    if (usage >= 100) return { t: t('exhausted'), cls: 'dead' };
+    if (d > 0.05) return { t: tf('ahead', fmtPct(d)), cls: 'over' };
+    if (d < -0.05) return { t: tf('behind', fmtPct(Math.abs(d))), cls: 'under' };
+    return { t: t('onPace'), cls: 'ok' };
+  }
+  function mark(el, pct) { el.style.left = clamp(pct, 0, 100) + '%'; }
+  function fill(el, pct, color) {
+    el.style.width = clamp(pct, 0, 100) + '%';
+    if (color) el.style.background = color;
+  }
+  function dh(ms) {
+    const d = Math.floor(ms / MS_DAY), h = Math.floor((ms % MS_DAY) / MS_H);
+    return tf('dh', d, h);
+  }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function nextCycle(baseStr, now, cycleMs) {
+    let d = new Date(baseStr).getTime();
+    const n = now.getTime();
+    if (!Number.isFinite(d)) d = n;
+    if (d > n) d -= Math.ceil((d - n) / cycleMs) * cycleMs;
+    return new Date(d + (Math.floor((n - d) / cycleMs) + 1) * cycleMs);
+  }
+  function verdictBox(el, title, color, text) {
+    el.innerHTML = '<span class="dot" style="background:' + color + '"></span><b>' + title + '</b> · ' + text;
+  }
+
+  function cursorState(now) {
+    const auto = num(C.auto, 0), api = num(C.api, 0);
+    const wA = num(C.wA, 3.5), wB = num(C.wB, 1);
+    const total = Math.round((auto * wA + api * wB) / (wA + wB));
+    let next = new Date(str(C.reset, ''));
+    const days = num(C.cycleDays, 30);
+    if (isNaN(+next)) next = new Date(now.getTime() + days * MS_DAY);
+    while (next <= now) next = new Date(next.getTime() + days * MS_DAY);
+    const prev = new Date(next.getTime() - days * MS_DAY);
+    const time = ((now - prev) / (next - prev)) * 100;
+    const wSum = wA + wB;
+    let autoI, apiI;
+    if (auto <= 0 && api <= 0) {
+      autoI = apiI = time;
+    } else if (api <= 0) {
+      autoI = Math.min(100, time * wSum / wA); apiI = 0;
+    } else if (auto <= 0) {
+      apiI = Math.min(100, time * wSum / wB); autoI = 0;
+    } else {
+      const ratio = auto / api;
+      apiI = (time * wSum) / (ratio * wA + wB);
+      autoI = ratio * apiI;
+    }
+    const weighted = auto * wA + api * wB;
+    const share = weighted > 0 ? (api * wB) / weighted * 100 : 0;
+    return { auto, api, wA, wB, total, weighted, time, next, left: next - now, autoI, apiI, share };
+  }
+
+  function geminiState(now) {
+    const week = num(G.week, 0);
+    const raw = previewStore && previewStore[G.short] != null
+      ? previewStore[G.short]
+      : localStorage.getItem(G.short);
+    const short = raw === null ? null : clamp(+raw, 0, 100);
+    const cost = num(G.cost, 5) || 5;
+    const nextW = nextCycle(str(G.weekReset, ''), now, 7 * MS_DAY);
+    const start = new Date(nextW - 7 * MS_DAY);
+    const time = ((now - start) / (7 * MS_DAY)) * 100;
+    const nextS = nextCycle(str(G.shortReset, ''), now, 5 * MS_H);
+    return { week, short, cost, time, nextW, nextS, left: nextW - now, uses: (100 - week) / cost };
+  }
+
+  function isDual() { return window.matchMedia('(min-width: 760px)').matches; }
+
+  function showPanel(id) {
+    if (id !== 'gemini') id = 'cursor';
+    set(PANEL_KEY, id);
+    const all = isDual();
+    document.querySelectorAll('.board').forEach(function (b) {
+      b.classList.toggle('show', all || b.id === id);
+    });
+    document.querySelectorAll('.pulse [data-panel]').forEach(function (btn) {
+      btn.classList.toggle('on', btn.dataset.panel === id);
+    });
+    if (location.hash.replace('#', '') !== id) {
+      history.replaceState(null, '', '#' + id);
+    }
+  }
+
+  function paint() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      (now.getMonth() + 1) + '/' + now.getDate() + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+
+    const c = cursorState(now);
+    const cd = delta(c.total, c.time);
+    document.getElementById('cTime').textContent = fmtPct(c.time) + '%';
+    document.getElementById('cHero').textContent = fmtPct(c.total) + '%';
+    document.getElementById('cHero').style.color = ink(c.total, c.time);
+    const cDelta = document.getElementById('cHeroDelta');
+    cDelta.textContent = cd.t;
+    cDelta.className = 'hero-delta ' + cd.cls;
+    fill(document.getElementById('cTotalFill'), c.total, tone(c.total, c.time));
+    mark(document.getElementById('cTotalMark'), c.time);
+    fill(document.getElementById('cAutoFill'), c.auto, tone(c.auto, c.autoI));
+    fill(document.getElementById('cApiFill'), c.api, tone(c.api, c.apiI));
+    mark(document.getElementById('cAutoMark'), c.autoI);
+    mark(document.getElementById('cApiMark'), c.apiI);
+    document.getElementById('autoSlider').value = c.auto;
+    document.getElementById('apiSlider').value = c.api;
+    document.getElementById('cPace').textContent = cd.t;
+    document.getElementById('cPace').style.color = ink(c.total, c.time);
+    document.getElementById('cShare').textContent = c.share.toFixed(1) + '%';
+    document.getElementById('cLeft').textContent = dh(c.left);
+    const cDaily = c.left > 0.05 * MS_DAY ? Math.max(0, (100 - c.api) / (c.left / MS_DAY)) : 0;
+    document.getElementById('cDaily').textContent = cDaily.toFixed(1) + '%';
+    document.getElementById('pC').textContent = fmtPct(c.total) + '%';
+    document.getElementById('pC').style.color = ink(c.total, c.time);
+    document.getElementById('pCs').textContent = cd.t;
+    document.getElementById('pCs').style.color = ink(c.total, c.time);
+    const cTitle = c.total >= 100 ? t('cQuotaOut') : (c.total > c.time + 0.05 ? t('cAhead') : t('cOk'));
+    verdictBox(document.getElementById('cVerdict'), cTitle, ink(c.total, c.time),
+      t('cAuto') + ' ' + fmtPct(c.auto) + '% / ' + t('cApi') + ' ' + fmtPct(c.api) + '% · ' + t('remaining') + ' ' + dh(c.left));
+
+    const g = geminiState(now);
+    const gd = delta(g.week, g.time);
+    document.getElementById('gTime').textContent = fmtPct(g.time) + '%';
+    document.getElementById('gHero').textContent = fmtPct(g.week) + '%';
+    document.getElementById('gHero').style.color = ink(g.week, g.time);
+    const gDelta = document.getElementById('gHeroDelta');
+    gDelta.textContent = gd.t;
+    gDelta.className = 'hero-delta ' + gd.cls;
+    fill(document.getElementById('gWeekFill'), g.week, tone(g.week, g.time));
+    mark(document.getElementById('gWeekMark'), g.time);
+    document.getElementById('weeklyUsageSlider').value = g.week;
+    document.getElementById('shortUsageText').textContent = g.short == null ? t('notSynced') : fmtPct(g.short) + '%';
+    fill(document.getElementById('gShortFill'), g.short == null ? 0 : g.short);
+    const nextS = pad(g.nextS.getHours()) + ':' + pad(g.nextS.getMinutes());
+    document.getElementById('gShortHint').textContent = tf('shortHint', nextS, g.cost);
+    document.getElementById('gPace').textContent = gd.t;
+    document.getElementById('gPace').style.color = ink(g.week, g.time);
+    document.getElementById('gReset').textContent = nextS;
+    document.getElementById('gLeft').textContent = dh(g.left);
+    document.getElementById('gUses').textContent = Math.max(0, g.uses).toFixed(1);
+    document.getElementById('pG').textContent = fmtPct(g.week) + '%';
+    document.getElementById('pG').style.color = ink(g.week, g.time);
+    document.getElementById('pGs').textContent = gd.t;
+    document.getElementById('pGs').style.color = ink(g.week, g.time);
+    const gTitle = g.week >= 100 ? t('gQuotaOut') : (g.week > g.time + 0.05 ? t('gAhead') : t('gOk'));
+    verdictBox(document.getElementById('gVerdict'), gTitle, ink(g.week, g.time),
+      t('ideal') + ' ' + fmtPct(g.time) + '% · ' + t('gUses') + ' ' + Math.max(0, g.uses).toFixed(1));
+  }
+
+  document.getElementById('autoSlider').addEventListener('input', function (e) { set(C.auto, e.target.value); paint(); });
+  document.getElementById('apiSlider').addEventListener('input', function (e) { set(C.api, e.target.value); paint(); });
+  document.getElementById('weeklyUsageSlider').addEventListener('input', function (e) { set(G.week, e.target.value); paint(); });
+
+  document.querySelectorAll('[data-panel]').forEach(function (btn) {
+    btn.addEventListener('click', function () { showPanel(btn.dataset.panel); });
+  });
+  window.addEventListener('resize', function () { showPanel(str(PANEL_KEY, 'cursor')); });
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.key === '1') showPanel('cursor');
+    if (e.key === '2') showPanel('gemini');
+  });
+
+  document.getElementById('langBtn').addEventListener('click', function () {
+    lang = lang === 'zh' ? 'en' : 'zh';
+    set(LANG_KEY, lang);
+    applyLang();
+    paint();
+  });
+
+  document.querySelectorAll('[data-sheet]').forEach(function (btn) {
+    btn.onclick = function () {
+      const id = btn.dataset.sheet;
+      if (id === 'sheet-c') {
+        document.getElementById('cReset').value = str(C.reset, '');
+        document.getElementById('cDays').value = num(C.cycleDays, 30);
+        document.getElementById('cWa').value = num(C.wA, 3.5);
+        document.getElementById('cWb').value = num(C.wB, 1);
+      }
+      if (id === 'sheet-g') {
+        document.getElementById('gWeekAnchor').value = str(G.weekReset, '');
+        document.getElementById('gShortAnchor').value = str(G.shortReset, '');
+        document.getElementById('gCost').value = String([4, 5, 10].indexOf(num(G.cost, 5)) >= 0 ? num(G.cost, 5) : 5);
+      }
+      document.getElementById(id).classList.add('on');
+    };
+  });
+  document.querySelectorAll('.sheet').forEach(function (s) {
+    s.addEventListener('click', function (e) { if (e.target === s) s.classList.remove('on'); });
+  });
+  document.querySelector('[data-save=c]').onclick = function () {
+    const reset = document.getElementById('cReset').value;
+    if (reset) set(C.reset, reset);
+    set(C.cycleDays, document.getElementById('cDays').value);
+    set(C.wA, document.getElementById('cWa').value);
+    set(C.wB, document.getElementById('cWb').value);
+    document.getElementById('sheet-c').classList.remove('on');
+    paint();
+  };
+  document.querySelector('[data-save=g]').onclick = function () {
+    const w = document.getElementById('gWeekAnchor').value;
+    const s = document.getElementById('gShortAnchor').value;
+    if (w) set(G.weekReset, w);
+    if (s) set(G.shortReset, s);
+    set(G.cost, document.getElementById('gCost').value);
+    document.getElementById('sheet-g').classList.remove('on');
+    paint();
+  };
+
+  window.applyCursorSync = function (data) {
+    if (!data || typeof data !== 'object') return;
+    if (Number.isFinite(+data.auto)) set(C.auto, clamp(+data.auto, 0, 100));
+    if (Number.isFinite(+data.api)) set(C.api, clamp(+data.api, 0, 100));
+    if (data.reset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.reset)) set(C.reset, data.reset.slice(0, 16));
+    paint();
+  };
+  window.applyGeminiSync = function (data) {
+    if (!data || typeof data !== 'object') return;
+    if (Number.isFinite(+data.weekly)) set(G.week, clamp(+data.weekly, 0, 100));
+    if (Number.isFinite(+data.short)) set(G.short, clamp(+data.short, 0, 100));
+    if (data.weeklyReset) set(G.weekReset, String(data.weeklyReset).slice(0, 16));
+    if (data.shortReset) set(G.shortReset, String(data.shortReset).slice(0, 16));
+    paint();
+  };
+
+  applyLang();
+  showPanel(location.hash.replace('#', '') || str(PANEL_KEY, 'cursor'));
+  paint();
+  setInterval(paint, 15000);
+})();
+</script>
+</body>
+</html>

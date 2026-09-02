@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Usage Sync · Cursor & Gemini",
   "description": "Sync usage from Cursor Spending / Billing and Gemini usage pages to local usage managers.",
-  "version": "1.3.5",
+  "version": "1.4.0",
   "permissions": [
     "storage"
   ],

@@ -6,6 +6,8 @@
 
 [English](#english) · [中文](#中文) · [Rules](docs/RULES.md) · [Changelog](CHANGELOG.md) · [License](LICENSE)
 
+![Cursor and Gemini usage dashboard](docs/preview.png)
+
 ---
 
 ## English
@@ -33,8 +35,9 @@ usage-sync/
 │   ├── popup/
 │   └── manifest.json
 ├── managers/
-│   ├── cursor-usage-manager.html   # Cursor weighted usage + ideal line
-│   └── gemini-quota-manager.html   # Gemini dual-cycle quota
+│   ├── index.html                  # Combined dashboard (Cursor + Gemini)
+│   ├── cursor-usage-manager.html   # Cursor-only page
+│   └── gemini-quota-manager.html   # Gemini-only page
 └── docs/
     └── RULES.md              # Field mapping & formulas
 ```
@@ -52,12 +55,11 @@ git clone https://github.com/xyl369/usage-sync.git
 3. **Load unpacked** → select `usage-sync/extension`
 4. Extension details → enable **"Allow access to file URLs"** (required)
 
-**2. Open local managers**
+**2. Open the local dashboard**
 
-Open directly in browser (`file://`):
+Open `managers/index.html` in the browser (`file://`). Cursor and Gemini sit side by side.
 
-- `managers/cursor-usage-manager.html`
-- `managers/gemini-quota-manager.html`
+Standalone pages (`cursor-usage-manager.html`, `gemini-quota-manager.html`) still work if you prefer them.
 
 Keep a fixed path; don't run multiple copies from different locations.
 
@@ -70,22 +72,22 @@ Keep a fixed path; don't run multiple copies from different locations.
    - https://cursor.com/dashboard/spending (recommended)
    - https://cursor.com/dashboard/billing
 3. Green toast at bottom-right: `Synced · Cursor Models xx% · Other Models xx%`
-4. **Close** the local manager tab, reopen `cursor-usage-manager.html`
-5. Green "aligned" banner below plan card = success
+4. Reopen `managers/index.html` (or the Cursor-only page)
+5. Green aligned banner at the top = success
 
 **Gemini**
 
 1. Open and refresh https://gemini.google.com/usage
-2. After green sync toast, reopen `gemini-quota-manager.html`
+2. After the green sync toast, reopen `managers/index.html` (or the Gemini-only page)
 
 ### Field mapping
 
-| Official | Local manager |
-|----------|---------------|
-| Cursor Models % | First-Party slider |
-| Other Models % | API slider |
+| Official | Local dashboard |
+|----------|-----------------|
+| Cursor Models % | Cursor Models slider |
+| Other Models % | Other Models slider |
 | Gemini weekly limit % | Weekly usage slider |
-| Gemini current usage % | Short-cycle read-only bar |
+| Gemini current usage % | 5-hour window (read-only) |
 
 See [docs/RULES.md](docs/RULES.md) for full calculation formulas.
 
@@ -146,8 +148,9 @@ usage-sync/
 │   ├── popup/
 │   └── manifest.json
 ├── managers/
-│   ├── cursor-usage-manager.html   # Cursor 加权用量 + 合理线
-│   └── gemini-quota-manager.html   # Gemini 双周期配额
+│   ├── index.html                  # 合并看板（Cursor + Gemini）
+│   ├── cursor-usage-manager.html   # 仅 Cursor
+│   └── gemini-quota-manager.html   # 仅 Gemini
 └── docs/
     └── RULES.md              # 字段映射与计算公式
 ```
@@ -165,12 +168,11 @@ git clone https://github.com/xyl369/usage-sync.git
 3. **加载已解压的扩展程序** → 选择 `usage-sync/extension`
 4. 扩展详情 → 开启 **「允许访问文件网址」**（必须）
 
-**2. 打开本地管家**
+**2. 打开本地看板**
 
-用浏览器直接打开（`file://`）：
+用浏览器打开 `managers/index.html`（`file://`）。Cursor 与 Gemini 并排显示。
 
-- `managers/cursor-usage-manager.html`
-- `managers/gemini-quota-manager.html`
+若只想看其中一个，仍可打开 `cursor-usage-manager.html` 或 `gemini-quota-manager.html`。
 
 建议固定路径，不要移动后开多个副本。
 
@@ -183,22 +185,22 @@ git clone https://github.com/xyl369/usage-sync.git
    - https://cursor.com/dashboard/spending （推荐）
    - https://cursor.com/dashboard/billing
 3. 页面右下角出现绿色：`Synced · Cursor Models xx% · Other Models xx%`
-4. **关掉**本地管家标签，重新打开 `cursor-usage-manager.html`
-5. 计划卡下方显示绿色「已对齐」即成功
+4. 重新打开 `managers/index.html`（或仅 Cursor 页）
+5. 顶部绿色对齐提示即成功
 
 **Gemini**
 
 1. 打开并刷新 https://gemini.google.com/usage
-2. 右下角绿色同步提示出现后，重新打开 `gemini-quota-manager.html`
+2. 右下角绿色同步提示出现后，重新打开 `managers/index.html`（或仅 Gemini 页）
 
 ### 字段映射
 
-| 官方 | 本地管家 |
+| 官方 | 本地看板 |
 |------|----------|
-| Cursor Models % | First-Party 滑块 |
-| Other Models % | API 滑块 |
+| Cursor Models % | Cursor 模型滑块 |
+| Other Models % | 其他模型滑块 |
 | Gemini 每周限额 % | 周用量滑块 |
-| Gemini 当前用量 % | 短周期只读条 |
+| Gemini 当前用量 % | 五小时窗（只读） |
 
 完整计算公式见 [docs/RULES.md](docs/RULES.md)。
 

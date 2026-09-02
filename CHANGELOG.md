@@ -2,6 +2,18 @@
 
 Version numbers match `extension/manifest.json`.
 
+## [1.4.0] — 2026-09-02
+
+### Added
+
+- Combined local dashboard `managers/index.html`: Cursor and Gemini side by side
+- Extension bridge applies both Cursor and Gemini sync on the combined page
+- English / 中文 toggle on the combined dashboard
+
+### Changed
+
+- Combined dashboard is the primary UI; standalone manager pages remain for bookmarks
+
 ## [1.3.5] — 2026-07-24
 
 ### Added

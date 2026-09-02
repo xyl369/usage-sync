@@ -18,17 +18,24 @@
 
   if (!isAlive()) return;
 
-  let BUILD = '1.3.5';
+  let BUILD = '1.4.0';
   try {
     BUILD = chrome.runtime.getManifest().version;
   } catch (_) { /* keep fallback */ }
 
   const path = decodeURIComponent(location.pathname || '');
   const title = document.title || '';
+  const isDashboard = Boolean(
+    (document.body && document.body.id === 'usage-dashboard') ||
+    /\/managers\/index\.html$/i.test(path) ||
+    /^Usage Sync$/i.test(title)
+  );
   const isCursor =
+    isDashboard ||
     /Cursor\s*Usage\s*Manager/i.test(title) ||
     /cursor-usage-manager/i.test(path);
   const isGemini =
+    isDashboard ||
     /Gemini\s*Quota\s*Manager/i.test(title) ||
     /gemini-quota-manager/i.test(path);
 
@@ -36,7 +43,8 @@
 
   let stopped = false;
   let tickTimer = null;
-  let lastApplied = '';
+  let lastCursorApplied = '';
+  let lastGeminiApplied = '';
 
   function stop(reason) {
     if (stopped) return;
@@ -168,55 +176,67 @@
     return Boolean(weeklyOk && (shortOk || /applyGeminiSync/.test(hooked)));
   }
 
+  function applyCursorPayload(d) {
+    if (!d) {
+      return { ok: false, text: 'Cursor waiting — hard-refresh spending or billing' };
+    }
+    const sig = `${d.auto}|${d.api}|${d.reset}|${d.syncedAt}`;
+    const aligned = verifyCursor(d);
+    if (sig !== lastCursorApplied || !aligned) {
+      applyCursorDom(d);
+      lastCursorApplied = sig;
+    }
+    const parts = [];
+    if (d.auto != null) parts.push(`Cursor Models ${d.auto}%`);
+    if (d.api != null) parts.push(`Other Models ${d.api}%`);
+    const okNow = verifyCursor(d);
+    if (!okNow) {
+      applyCursorDom(d);
+      return { ok: false, text: 'Cursor retrying · ' + parts.join(' · ') };
+    }
+    return { ok: true, text: 'Cursor ' + parts.join(' · ') + ' · ' + fmtTime(d.syncedAt) };
+  }
+
+  function applyGeminiPayload(d) {
+    if (!d) {
+      return { ok: false, text: 'Gemini waiting — refresh gemini.google.com/usage' };
+    }
+    const sig = `${d.short}|${d.weekly}|${d.shortReset}|${d.weeklyReset}|${d.syncedAt}`;
+    const aligned = verifyGemini(d);
+    if (sig !== lastGeminiApplied || !aligned) {
+      applyGeminiDom(d);
+      lastGeminiApplied = sig;
+    }
+    const parts = [];
+    if (d.short != null) parts.push(`Current ${d.short}%`);
+    if (d.weekly != null) parts.push(`Weekly ${d.weekly}%`);
+    const okNow = verifyGemini(d);
+    if (!okNow) {
+      applyGeminiDom(d);
+      return { ok: false, text: 'Gemini retrying · ' + parts.join(' · ') };
+    }
+    return { ok: true, text: 'Gemini ' + parts.join(' · ') + ' · ' + fmtTime(d.syncedAt) };
+  }
+
   function applyPayload(r) {
+    const store = r || {};
+    if (isDashboard) {
+      const cursor = applyCursorPayload(store.cursorSync);
+      const gemini = applyGeminiPayload(store.geminiSync);
+      const ok = cursor.ok && gemini.ok;
+      showBanner('[' + BUILD + '] ' + cursor.text + ' · ' + gemini.text, ok);
+      return;
+    }
+
     if (isCursor) {
-      const d = r && r.cursorSync;
-      if (!d) {
-        showBanner(`[${BUILD}] Waiting for sync — open and hard-refresh cursor.com/dashboard/spending or billing (green Synced toast expected)`, false);
-        return;
-      }
-      const sig = `${d.auto}|${d.api}|${d.reset}|${d.syncedAt}`;
-      // Re-verify sliders on every pull; force rewrite if misaligned (banner ok, sliders stale)
-      const aligned = verifyCursor(d);
-      if (sig !== lastApplied || !aligned) {
-        applyCursorDom(d);
-        lastApplied = sig;
-      }
-      const parts = [];
-      if (d.auto != null) parts.push(`Cursor Models ${d.auto}%`);
-      if (d.api != null) parts.push(`Other Models ${d.api}%`);
-      const okNow = verifyCursor(d);
-      if (!okNow) {
-        showBanner(`[${BUILD}] Storage synced but sliders misaligned — retrying · ${parts.join(' · ')}`, false);
-        applyCursorDom(d);
-        return;
-      }
-      showBanner(`[${BUILD}] Aligned · ${parts.join(' · ')} · ${fmtTime(d.syncedAt)}`, true);
+      const cursor = applyCursorPayload(store.cursorSync);
+      showBanner('[' + BUILD + '] ' + (cursor.ok ? 'Aligned · ' : '') + cursor.text, cursor.ok);
       return;
     }
 
     if (isGemini) {
-      const d = r && r.geminiSync;
-      if (!d) {
-        showBanner(`[${BUILD}] Waiting for sync — open and refresh gemini.google.com/usage`, false);
-        return;
-      }
-      const sig = `${d.short}|${d.weekly}|${d.shortReset}|${d.weeklyReset}|${d.syncedAt}`;
-      const aligned = verifyGemini(d);
-      if (sig !== lastApplied || !aligned) {
-        applyGeminiDom(d);
-        lastApplied = sig;
-      }
-      const parts = [];
-      if (d.short != null) parts.push(`Current usage ${d.short}%`);
-      if (d.weekly != null) parts.push(`Weekly limit ${d.weekly}%`);
-      const okNow = verifyGemini(d);
-      if (!okNow) {
-        showBanner(`[${BUILD}] Storage synced but page misaligned — retrying · ${parts.join(' · ')}`, false);
-        applyGeminiDom(d);
-        return;
-      }
-      showBanner(`[${BUILD}] Aligned · ${parts.join(' · ')} · ${fmtTime(d.syncedAt)}`, true);
+      const gemini = applyGeminiPayload(store.geminiSync);
+      showBanner('[' + BUILD + '] ' + (gemini.ok ? 'Aligned · ' : '') + gemini.text, gemini.ok);
     }
   }
 
@@ -251,11 +271,11 @@
       return;
     }
     if (isCursor && changes.cursorSync) {
-      lastApplied = '';
+      lastCursorApplied = '';
       pull();
     }
     if (isGemini && changes.geminiSync) {
-      lastApplied = '';
+      lastGeminiApplied = '';
       pull();
     }
   }

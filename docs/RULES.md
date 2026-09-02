@@ -2,14 +2,19 @@
 
 ## 1. Official data → local fields
 
-The extension scrapes percentages from official pages into `chrome.storage.local`; manager HTML pages read them into sliders.
+The extension scrapes percentages from official pages into `chrome.storage.local`; local HTML dashboards read them into sliders.
+
+Primary UI: `managers/index.html` (Cursor + Gemini). Standalone pages still work:
+
+- `managers/cursor-usage-manager.html`
+- `managers/gemini-quota-manager.html`
 
 ### Cursor
 
 | Official page | Official field | Local manager | Slider ID |
 |---------------|----------------|---------------|-----------|
-| [spending](https://cursor.com/dashboard/spending) or [billing](https://cursor.com/dashboard/billing) | **Cursor Models** `XX%` / `XX% used` | First-Party (Auto+Composer) | `#autoSlider` |
-| Same | **Other Models** `XX%` | API | `#apiSlider` |
+| [spending](https://cursor.com/dashboard/spending) or [billing](https://cursor.com/dashboard/billing) | **Cursor Models** `XX%` / `XX% used` | Cursor Models | `#autoSlider` |
+| Same | **Other Models** `XX%` | Other Models | `#apiSlider` |
 | Billing cycle line | `Jul 18, 2026 – Aug 18, 2026` | Next reset time | `localStorage.cursorNextResetTime` |
 
 > Legacy labels First-Party / API Usage renamed to Cursor Models / Other Models. Extension v1.3.5+ supports both.
