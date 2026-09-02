@@ -139,12 +139,13 @@
     }
 
     // Sanity: if both equal and page has two different Used% values, re-read ordered
-    const allUsed = [...norm.matchAll(/已使用\s*(\d+(?:\.\d+)?)\s*%/g)].map((m) => clampPct(+m[1]));
-    if (allUsed.length >= 2) {
-      // Official order: current usage first, weekly limit second
+    const allUsed = [...norm.matchAll(/已使用[\s\S]{0,24}(\d+(?:\.\d+)?)\s*%/g)].map((m) => clampPct(+m[1]));
+    if (/当前用量/.test(norm) && /每周限额/.test(norm) && allUsed.length >= 2) {
+      short = allUsed[0];
+      weekly = allUsed[1];
+    } else if (allUsed.length >= 2) {
       if (short == null) short = allUsed[0];
       if (weekly == null) weekly = allUsed[1];
-      // If we accidentally assigned short to both, force ordered pair
       if (short != null && weekly != null && short === weekly && allUsed[0] !== allUsed[1]) {
         short = allUsed[0];
         weekly = allUsed[1];

@@ -55,5 +55,8 @@ function render() {
 }
 
 document.getElementById('refreshBtn').addEventListener('click', render);
+document.getElementById('liveBtn').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('popup/live.html') });
+});
 chrome.storage.onChanged.addListener(render);
 render();

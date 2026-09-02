@@ -2,6 +2,14 @@
 
 Version numbers match `extension/manifest.json`.
 
+## [1.4.2] — 2026-09-02
+
+### Fixed
+
+- Cursor pool total uses the largest % in that section (avoids sub-model rows like 33.5% instead of 39.2%)
+- Gemini usage scripts run in iframes; current / weekly take the official on-page order
+- File-page bridge always binds if `#usage-sync-slot` exists, and applies via a page-world event
+
 ## [1.4.1] — 2026-09-02
 
 ### Fixed

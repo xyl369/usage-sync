@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Usage Sync · Cursor & Gemini",
   "description": "Sync usage from Cursor Spending / Billing and Gemini usage pages to local usage managers.",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "permissions": [
     "storage"
   ],
@@ -35,10 +35,9 @@
         "https://cursor.com/*",
         "https://www.cursor.com/*"
       ],
-      "js": [
-        "content/cursor.js"
-      ],
-      "run_at": "document_idle"
+      "js": ["content/cursor.js"],
+      "run_at": "document_idle",
+      "all_frames": true
     },
     {
       "matches": [
@@ -47,7 +46,14 @@
       "js": [
         "content/gemini.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["file:///*"],
+      "js": ["content/page-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     },
     {
       "matches": [

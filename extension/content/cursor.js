@@ -101,16 +101,17 @@
   const API_START = /Other\s*Models?|其他模型|其它模型|其他型号|Third[\s-]*Party/i;
   const API_STOP = /Invoice|发票|API\s*Keys|密钥|Included Usage|包含用途|包含使用/i;
 
-  /** First % after a pool label, cut before the next pool so sub-model rows cannot win. */
+  /** Pool total is the largest % in that section (sub-model rows are always smaller). */
   function pctAfterLabelUntil(text, startRe, stopRe) {
     const src = String(text);
     const start = src.search(startRe);
     if (start < 0) return null;
     const from = src.slice(start);
     const stop = from.slice(1).search(stopRe);
-    const region = stop >= 0 ? from.slice(0, stop + 1) : from.slice(0, 280);
-    const m = region.match(/(\d+(?:\.\d+)?)\s*%/);
-    return m ? clampPct(parseFloat(m[1])) : null;
+    const region = stop >= 0 ? from.slice(0, stop + 1) : from.slice(0, 8000);
+    const all = [...region.matchAll(/(\d+(?:\.\d+)?)\s*%/g)].map((m) => clampPct(parseFloat(m[1]))).filter((n) => n != null);
+    if (!all.length) return null;
+    return Math.max.apply(null, all);
   }
 
   function isBillingLikePath() {

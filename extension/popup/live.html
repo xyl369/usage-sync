@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Usage Sync live</title>
+  <style>
+    body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; background: #f3efe6; color: #1c1916; }
+    h1 { font-size: 18px; font-weight: 600; }
+    .ok { color: #2f6b52; }
+    .wait { color: #9a6700; }
+    pre { background: #fffcf7; padding: 12px; border-radius: 10px; overflow: auto; }
+    p { color: #6f6860; }
+  </style>
+</head>
+<body>
+  <h1>已抓取的官网用量</h1>
+  <p>这里直接读扩展存储，不经过本地 HTML。若这里是 39.2% / 60%，而看板不是，说明本地文件页没允许「访问文件网址」。</p>
+  <div id="status" class="wait">读取中…</div>
+  <pre id="out"></pre>
+  <script src="live.js"></script>
+</body>
+</html>

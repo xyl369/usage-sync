@@ -18,7 +18,7 @@
 
   if (!isAlive()) return;
 
-  let BUILD = '1.4.1';
+  let BUILD = '1.4.2';
   try {
     BUILD = chrome.runtime.getManifest().version;
   } catch (_) { /* keep fallback */ }
@@ -31,12 +31,11 @@
   const hasCursorSliders = has('autoSlider') || has('cAuto');
   const hasGeminiSliders = has('weeklyUsageSlider') || has('gWeekSlider');
   const isDashboard = Boolean(
+    has('usage-sync-slot') ||
     (document.body && document.body.id === 'usage-dashboard') ||
-    has('usage-sync-slot') && hasCursorSliders && hasGeminiSliders ||
     /\/managers\/index\.html$/i.test(path) ||
-    /用量看板\.html$/i.test(path) ||
-    /^Usage Sync$/i.test(title) ||
-    /^(用量|用量看板)$/.test(title)
+    /用量看板/i.test(path) ||
+    /Usage Sync|用量看板|^用量$/i.test(title)
   );
   const isCursor =
     isDashboard ||
@@ -107,6 +106,14 @@
 
   /** Run in page JS world (bypass isolated world) */
   function runInPage(fnName, data) {
+    try {
+      document.documentElement.setAttribute('data-usage-sync', BUILD);
+      document.dispatchEvent(new CustomEvent('usage-sync-apply', {
+        bubbles: true,
+        cancelable: true,
+        detail: { fn: fnName, data: data },
+      }));
+    } catch (_) { /* ignore */ }
     const payload = JSON.stringify(data == null ? null : data);
     const code =
       'try{if(typeof window.' + fnName + '==="function"){window.' + fnName + '(' + payload + ');' +
@@ -331,6 +338,10 @@
       pull();
     }
   }
+
+  try {
+    document.documentElement.setAttribute('data-usage-sync', BUILD);
+  } catch (_) { /* ignore */ }
 
   try {
     chrome.storage.onChanged.addListener(onStorageChanged);

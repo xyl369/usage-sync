@@ -89,13 +89,15 @@
   <div class="card hint">
     <strong style="color:var(--text)">First-time setup</strong>
     <ol>
-      <li>Open <code>chrome://extensions</code> → Load unpacked extension</li>
-      <li>Open extension details → Enable “Allow access to file URLs”</li>
-      <li>Hard-refresh <a href="https://cursor.com/dashboard/spending" target="_blank">Cursor Spending</a> (or Billing) and <a href="https://gemini.google.com/usage" target="_blank">Gemini Usage</a>; a green “Synced” toast should appear in the bottom-right</li>
-      <li>Open <code>managers/index.html</code> locally (Cursor and Gemini side by side)</li>
+      <li>Open <code>chrome://extensions</code> → Load unpacked → select <code>extension</code></li>
+      <li>Open extension details → Enable <strong>Allow access to file URLs</strong> (required for local HTML)</li>
+      <li>Reload this extension so the version is <strong>1.4.2</strong></li>
+      <li>Hard-refresh Cursor Billing and Gemini Usage; green toast must show pool totals</li>
+      <li>Close the local dashboard tab completely, then reopen the HTML file</li>
     </ol>
   </div>
 
+  <button type="button" id="liveBtn">Show scraped numbers</button>
   <button type="button" id="refreshBtn">Refresh status</button>
 
   <script src="popup.js"></script>
