@@ -62,29 +62,63 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
+  function calendarDays(a, b) {
+    const start = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    const end = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    return Math.max(1, Math.round((end - start) / 86400000));
+  }
+
+  function findBillingCycle(text) {
+    const range = text.match(
+      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})\s*[-–—to至]+\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})/i
+    );
+    if (range) {
+      const start = new Date(`${range[1]} ${range[2]}, ${range[3]}`);
+      const end = new Date(`${range[4]} ${range[5]}, ${range[6]}`);
+      if (!isNaN(start) && !isNaN(end)) {
+        end.setHours(23, 59, 0, 0);
+        return { reset: toLocalInput(end), cycleDays: calendarDays(start, end) };
+      }
+    }
+    const cn = text.match(
+      /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[-–—至到~\s]+(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/
+    );
+    if (cn) {
+      const start = new Date(+cn[1], +cn[2] - 1, +cn[3]);
+      const end = new Date(+cn[4], +cn[5] - 1, +cn[6], 23, 59, 0, 0);
+      return { reset: toLocalInput(end), cycleDays: calendarDays(start, end) };
+    }
+    const cnShort = text.match(/至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+    if (cnShort) {
+      const end = new Date(+cnShort[1], +cnShort[2] - 1, +cnShort[3], 23, 59, 0, 0);
+      if (!isNaN(end)) return { reset: toLocalInput(end), cycleDays: null };
+    }
+    return { reset: null, cycleDays: null };
+  }
+
+  const AUTO_START = /Cursor\s*Models?|光标模型|Cursor\s*模型|First[\s-]*Party/i;
+  const AUTO_STOP = /Other\s*Models?|其他模型|其它模型|其他型号|Third[\s-]*Party/i;
+  const API_START = /Other\s*Models?|其他模型|其它模型|其他型号|Third[\s-]*Party/i;
+  const API_STOP = /Invoice|发票|API\s*Keys|密钥|Included Usage|包含用途|包含使用/i;
+
+  /** First % after a pool label, cut before the next pool so sub-model rows cannot win. */
+  function pctAfterLabelUntil(text, startRe, stopRe) {
+    const src = String(text);
+    const start = src.search(startRe);
+    if (start < 0) return null;
+    const from = src.slice(start);
+    const stop = from.slice(1).search(stopRe);
+    const region = stop >= 0 ? from.slice(0, stop + 1) : from.slice(0, 280);
+    const m = region.match(/(\d+(?:\.\d+)?)\s*%/);
+    return m ? clampPct(parseFloat(m[1])) : null;
+  }
+
   function isBillingLikePath() {
     const p = location.pathname || '';
     const q = location.search || '';
     if (/\/dashboard\/(usage|billing|spending)/i.test(p)) return true;
     if (/\/dashboard\/?$/i.test(p) && /tab=(usage|billing|spending)/i.test(q)) return true;
     return /\/dashboard/i.test(p);
-  }
-
-  function findBillingCycleEnd(text) {
-    // Jul 18, 2026 – Aug 18, 2026
-    const range = text.match(
-      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})\s*[-–—to至]+\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})/i
-    );
-    if (range) {
-      const d = new Date(`${range[4]} ${range[5]}, ${range[6]} 23:59`);
-      if (!isNaN(d)) return toLocalInput(d);
-    }
-    const cn = text.match(/至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
-    if (cn) {
-      const d = new Date(+cn[1], +cn[2] - 1, +cn[3], 23, 59);
-      if (!isNaN(d)) return toLocalInput(d);
-    }
-    return null;
   }
 
   /** Whether this line is a sub-model row (not a pool total) */
@@ -99,7 +133,7 @@
     const t = line.trim();
     if (/Keys|密钥|Invoice/i.test(t)) return false;
     // Prefer newer copy first
-    if (/Cursor\s*Models?/i.test(t) || /Cursor\s*模型/i.test(t)) return true;
+    if (/Cursor\s*Models?/i.test(t) || /Cursor\s*模型/i.test(t) || /光标模型/.test(t)) return true;
     if (/First[\s-]*Party(\s*Models?)?/i.test(t) || /第一方/i.test(t)) return true;
     if (/^Auto\s*\+?\s*Composer/i.test(t)) return true;
     return false;
@@ -108,13 +142,18 @@
   function isApiPoolHeader(line) {
     const t = line.trim();
     if (/Keys|密钥|Invoice/i.test(t)) return false;
-    if (/Other\s*Models?/i.test(t) || /其他模型|其它模型/i.test(t)) return true;
+    if (/Other\s*Models?/i.test(t) || /其他模型|其它模型|其他型号/i.test(t)) return true;
     if (/Third[\s-]*Party/i.test(t) || /第三方/i.test(t)) return true;
     // Whole line is API / API Usage (do not match API Keys)
     if (/^API(\s*Usage)?$/i.test(t) || /^API\s*使用/i.test(t)) return true;
     // Same row: API 8.09M tokens 22.0%
     if (/^API(\s*Usage)?\b/i.test(t) && /\d+(?:\.\d+)?\s*%/.test(t) && !/Keys|密钥/i.test(t)) return true;
     return false;
+  }
+
+  function firstPctInLine(line) {
+    const m = String(line).match(/(\d+(?:\.\d+)?)\s*%/);
+    return m ? clampPct(parseFloat(m[1])) : null;
   }
 
   /** Extract the last percentage from a line (pool totals often in trailing Usage column) */
@@ -132,7 +171,7 @@
    * 2) First standalone xx% in following lines before sub-model detail gets too deep
    */
   function poolPct(lines, headerIdx) {
-    const headerPct = lastPctInLine(lines[headerIdx]);
+    const headerPct = firstPctInLine(lines[headerIdx]);
     if (headerPct != null) return headerPct;
 
     for (let j = headerIdx + 1; j < Math.min(lines.length, headerIdx + 8); j++) {
@@ -159,18 +198,25 @@
    */
   function scrapeSpendingPage(bodyText) {
     const flat = bodyText.replace(/\s+/g, ' ');
-    let auto = null;
-    let api = null;
+    let auto = pctAfterLabelUntil(
+      flat,
+      /Cursor\s*Models?|光标模型|Cursor\s*模型|First[\s-]*Party/i,
+      /Other\s*Models?|其他模型|其它模型|其他型号/i
+    );
+    let api = pctAfterLabelUntil(
+      flat,
+      /Other\s*Models?|其他模型|其它模型|其他型号/i,
+      /Invoice|发票|API\s*Keys|密钥/i
+    );
 
-    const autoM =
-      flat.match(/Cursor\s*Models?[^%]{0,160}?(\d+(?:\.\d+)?)\s*%\s*used/i) ||
-      flat.match(/First[\s-]*Party(?:\s*Models?)?[^%]{0,160}?(\d+(?:\.\d+)?)\s*%\s*used/i);
-    if (autoM) auto = clampPct(parseFloat(autoM[1]));
-
-    const apiM =
-      flat.match(/Other\s*Models?[^%]{0,160}?(\d+(?:\.\d+)?)\s*%\s*used/i) ||
-      flat.match(/(?:^|[^A-Za-z])API(?:\s*Usage)?[^%]{0,120}?(\d+(?:\.\d+)?)\s*%\s*used/i);
-    if (apiM) api = clampPct(parseFloat(apiM[1]));
+    if (/% used/i.test(flat)) {
+      const autoM =
+        flat.match(/Cursor\s*Models?[^%]{0,160}?(\d+(?:\.\d+)?)\s*%\s*used/i) ||
+        flat.match(/光标模型[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/);
+      if (autoM) auto = clampPct(parseFloat(autoM[1]));
+      const apiM = flat.match(/Other\s*Models?[^%]{0,160}?(\d+(?:\.\d+)?)\s*%\s*used/i);
+      if (apiM) api = clampPct(parseFloat(apiM[1]));
+    }
 
     if (auto == null && api == null) return null;
     return { auto, api, source: 'dom-spending' };
@@ -181,49 +227,35 @@
     if (!bodyText || bodyText.length < 40) return null;
 
     const looksLike =
-      /Included Usage|包含使用|Cursor Models|Other Models|First-Party|第一方|API Usage|Usage/i.test(bodyText);
+      /Included Usage|包含使用|包含用途|Cursor Models|光标模型|Other Models|其他模型|First-Party|第一方|API Usage|Usage/i.test(bodyText);
     if (!looksLike && !/\/dashboard\/(usage|billing|spending)/i.test(location.pathname)) return null;
 
-    // 1) Spending page "X% used" — simplest structure, try first
+    const flat = bodyText.replace(/\s+/g, ' ');
+    let auto = pctAfterLabelUntil(flat, AUTO_START, AUTO_STOP);
+    let api = pctAfterLabelUntil(flat, API_START, API_STOP);
+
     const spending = /% used/i.test(bodyText) ? scrapeSpendingPage(bodyText) : null;
+    if (auto == null && spending?.auto != null) auto = spending.auto;
+    if (api == null && spending?.api != null) api = spending.api;
 
     const lines = bodyText.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-    let auto = spending?.auto ?? null;
-    let api = spending?.api ?? null;
-
-    // 2) Billing table: header row / pool total % on same or next line
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (auto == null && isAutoPoolHeader(line)) {
-        auto = poolPct(lines, i);
-        continue;
-      }
-      if (api == null && isApiPoolHeader(line)) {
-        api = poolPct(lines, i);
-        continue;
+    if (auto == null || api == null) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (auto == null && isAutoPoolHeader(line)) auto = poolPct(lines, i);
+        if (api == null && isApiPoolHeader(line)) api = poolPct(lines, i);
       }
     }
 
-    // 3) Flattened fallback: Cursor Models … 24.6% / Other Models … 22.0%
-    const flat = bodyText.replace(/\s+/g, ' ');
-    if (auto == null) {
-      const m =
-        flat.match(/Cursor\s*Models?[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/i) ||
-        flat.match(/First[\s-]*Party(?:\s*Models?)?[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/i) ||
-        flat.match(/第一方(?:模型)?[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/);
-      if (m) auto = clampPct(parseFloat(m[1]));
-    }
-    if (api == null) {
-      const m =
-        flat.match(/Other\s*Models?[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/i) ||
-        flat.match(/(?:^|[^A-Za-z])API(?:\s*Usage)?[^%]{0,60}?(\d+(?:\.\d+)?)\s*%/i) ||
-        flat.match(/第三方(?:模型)?[^%]{0,80}?(\d+(?:\.\d+)?)\s*%/);
-      if (m) api = clampPct(parseFloat(m[1]));
-    }
-
-    const reset = findBillingCycleEnd(bodyText);
+    const cycle = findBillingCycle(bodyText);
     if (auto == null && api == null) return null;
-    return { auto, api, reset, source: spending ? 'dom-spending' : 'dom-billing-v2' };
+    return {
+      auto,
+      api,
+      reset: cycle.reset,
+      cycleDays: cycle.cycleDays,
+      source: spending ? 'dom-spending' : 'dom-billing-v3',
+    };
   }
 
   function queueSave(data) {
@@ -236,7 +268,7 @@
     if (!isAlive()) { stopped = true; return; }
     if (data.api == null && data.auto == null) return;
 
-    const signature = `${data.auto}|${data.api}|${data.reset || ''}`;
+    const signature = `${data.auto}|${data.api}|${data.reset || ''}|${data.cycleDays || ''}`;
     if (signature === lastSignature) return;
     lastSignature = signature;
 
@@ -244,6 +276,7 @@
       auto: data.auto,
       api: data.api,
       reset: data.reset || null,
+      cycleDays: data.cycleDays || null,
       syncedAt: Date.now(),
       source: data.source || 'dom',
     };

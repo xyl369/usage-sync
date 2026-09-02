@@ -271,7 +271,8 @@
       margin: 2px 0 8px;
       flex: 0 0 auto;
     }
-    .mini-name { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .mini-name { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+    .mini-name b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
     .facts {
       display: grid;
@@ -419,12 +420,12 @@
         </div>
         <div class="pair">
           <div>
-            <div class="mini-name" data-i18n="cAuto">Cursor Models</div>
+            <div class="mini-name"><span data-i18n="cAuto">Cursor Models</span> <b id="cAutoVal"></b></div>
             <div class="track"><div class="fill" id="cAutoFill"></div><div class="mark" id="cAutoMark"></div></div>
             <div class="hit"><input type="range" id="autoSlider" min="0" max="100" step="0.1"></div>
           </div>
           <div>
-            <div class="mini-name" data-i18n="cApi">Other Models</div>
+            <div class="mini-name"><span data-i18n="cApi">Other Models</span> <b id="cApiVal"></b></div>
             <div class="track"><div class="fill" id="cApiFill"></div><div class="mark" id="cApiMark"></div></div>
             <div class="hit"><input type="range" id="apiSlider" min="0" max="100" step="0.1"></div>
           </div>
@@ -791,6 +792,8 @@
     mark(document.getElementById('cApiMark'), c.apiI);
     document.getElementById('autoSlider').value = c.auto;
     document.getElementById('apiSlider').value = c.api;
+    document.getElementById('cAutoVal').textContent = fmtPct(c.auto) + '%';
+    document.getElementById('cApiVal').textContent = fmtPct(c.api) + '%';
     document.getElementById('cPace').textContent = cd.t;
     document.getElementById('cPace').style.color = ink(c.total, c.time);
     document.getElementById('cShare').textContent = c.share.toFixed(1) + '%';
@@ -899,6 +902,9 @@
     if (Number.isFinite(+data.auto)) set(C.auto, clamp(+data.auto, 0, 100));
     if (Number.isFinite(+data.api)) set(C.api, clamp(+data.api, 0, 100));
     if (data.reset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.reset)) set(C.reset, data.reset.slice(0, 16));
+    if (data.cycleDays != null && Number.isFinite(+data.cycleDays) && +data.cycleDays > 0) {
+      set(C.cycleDays, Math.round(+data.cycleDays));
+    }
     paint();
   };
   window.applyGeminiSync = function (data) {
@@ -909,11 +915,27 @@
     if (data.shortReset) set(G.shortReset, String(data.shortReset).slice(0, 16));
     paint();
   };
+  window.__usageHubApply = function (bundle) {
+    if (!bundle || typeof bundle !== 'object') return;
+    if (bundle.cursorSync) window.applyCursorSync(bundle.cursorSync);
+    if (bundle.geminiSync) window.applyGeminiSync(bundle.geminiSync);
+  };
+
+  function pullLocalHub() {
+    fetch('http://127.0.0.1:18765/sync', { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) return null;
+      return r.json();
+    }).then(function (d) {
+      if (d) window.__usageHubApply(d);
+    }).catch(function () { /* HUD companion optional */ });
+  }
 
   applyLang();
   showPanel(location.hash.replace('#', '') || str(PANEL_KEY, 'cursor'));
   paint();
+  pullLocalHub();
   setInterval(paint, 15000);
+  setInterval(pullLocalHub, 4000);
 })();
 </script>
 </body>

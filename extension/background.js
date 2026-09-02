@@ -5,6 +5,19 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 /** Content scripts write storage directly; this only updates the badge */
+function pushLocalHub() {
+  chrome.storage.local.get(['cursorSync', 'geminiSync'], (r) => {
+    fetch('http://127.0.0.1:18765/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cursorSync: r.cursorSync || null,
+        geminiSync: r.geminiSync || null,
+      }),
+    }).catch(() => { /* HUD companion is optional */ });
+  });
+}
+
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if (changes.cursorSync && changes.cursorSync.newValue) {
@@ -13,6 +26,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.geminiSync && changes.geminiSync.newValue) {
     updateBadge('gemini', changes.geminiSync.newValue);
   }
+  if (changes.cursorSync || changes.geminiSync) pushLocalHub();
 });
 
 /** Backward-compatible sendMessage handler (if any legacy calls remain) */

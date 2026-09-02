@@ -13,9 +13,9 @@ Primary UI: `managers/index.html` (Cursor + Gemini). Standalone pages still work
 
 | Official page | Official field | Local manager | Slider ID |
 |---------------|----------------|---------------|-----------|
-| [spending](https://cursor.com/dashboard/spending) or [billing](https://cursor.com/dashboard/billing) | **Cursor Models** `XX%` / `XX% used` | Cursor Models | `#autoSlider` |
-| Same | **Other Models** `XX%` | Other Models | `#apiSlider` |
-| Billing cycle line | `Jul 18, 2026 – Aug 18, 2026` | Next reset time | `localStorage.cursorNextResetTime` |
+| [spending](https://cursor.com/dashboard/spending) or [billing](https://cursor.com/dashboard/billing) | **Cursor Models** / **光标模型** pool `XX%` (not sub-model rows) | Cursor Models | `#autoSlider` |
+| Same | **Other Models** / **其他模型** pool `XX%` | Other Models | `#apiSlider` |
+| Billing cycle line | `August 18, 2026 – September 18, 2026` | Next reset + cycle days | `cursorNextResetTime`, `cursorCycleDays` |
 
 > Legacy labels First-Party / API Usage renamed to Cursor Models / Other Models. Extension v1.3.5+ supports both.
 

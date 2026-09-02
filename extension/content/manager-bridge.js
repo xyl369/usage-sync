@@ -18,24 +18,34 @@
 
   if (!isAlive()) return;
 
-  let BUILD = '1.4.0';
+  let BUILD = '1.4.1';
   try {
     BUILD = chrome.runtime.getManifest().version;
   } catch (_) { /* keep fallback */ }
 
   const path = decodeURIComponent(location.pathname || '');
   const title = document.title || '';
+  function has(id) {
+    return Boolean(document.getElementById(id));
+  }
+  const hasCursorSliders = has('autoSlider') || has('cAuto');
+  const hasGeminiSliders = has('weeklyUsageSlider') || has('gWeekSlider');
   const isDashboard = Boolean(
     (document.body && document.body.id === 'usage-dashboard') ||
+    has('usage-sync-slot') && hasCursorSliders && hasGeminiSliders ||
     /\/managers\/index\.html$/i.test(path) ||
-    /^Usage Sync$/i.test(title)
+    /用量看板\.html$/i.test(path) ||
+    /^Usage Sync$/i.test(title) ||
+    /^(用量|用量看板)$/.test(title)
   );
   const isCursor =
     isDashboard ||
+    hasCursorSliders ||
     /Cursor\s*Usage\s*Manager/i.test(title) ||
     /cursor-usage-manager/i.test(path);
   const isGemini =
     isDashboard ||
+    hasGeminiSliders ||
     /Gemini\s*Quota\s*Manager/i.test(title) ||
     /gemini-quota-manager/i.test(path);
 
@@ -109,13 +119,35 @@
     s.remove();
   }
 
-  function setSlider(id, value) {
-    const el = document.getElementById(id);
-    if (!el || value == null || !Number.isFinite(Number(value))) return false;
-    el.value = String(value);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+  function setSlider(ids, value) {
+    const list = Array.isArray(ids) ? ids : [ids];
+    let ok = false;
+    for (let i = 0; i < list.length; i++) {
+      const el = document.getElementById(list[i]);
+      if (!el || value == null || !Number.isFinite(Number(value))) continue;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      ok = true;
+    }
+    return ok;
+  }
+
+  function readSlider(ids) {
+    const list = Array.isArray(ids) ? ids : [ids];
+    for (let i = 0; i < list.length; i++) {
+      const el = document.getElementById(list[i]);
+      if (el && Number.isFinite(Number(el.value))) return Number(el.value);
+    }
+    return null;
+  }
+
+  function setText(ids, text) {
+    const list = Array.isArray(ids) ? ids : [ids];
+    for (let i = 0; i < list.length; i++) {
+      const el = document.getElementById(list[i]);
+      if (el) el.textContent = text;
+    }
   }
 
   /** Dual-write DOM + localStorage; does not depend on page hooks */
@@ -123,14 +155,17 @@
     if (!data) return;
     if (data.auto != null && Number.isFinite(Number(data.auto))) {
       try { localStorage.setItem('cursorUsageAuto', String(data.auto)); } catch (_) {}
-      setSlider('autoSlider', data.auto);
+      setSlider(['autoSlider', 'cAuto'], data.auto);
     }
     if (data.api != null && Number.isFinite(Number(data.api))) {
       try { localStorage.setItem('cursorUsageApi', String(data.api)); } catch (_) {}
-      setSlider('apiSlider', data.api);
+      setSlider(['apiSlider', 'cApi'], data.api);
     }
     if (data.reset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.reset)) {
       try { localStorage.setItem('cursorNextResetTime', data.reset.slice(0, 16)); } catch (_) {}
+    }
+    if (data.cycleDays != null && Number.isFinite(Number(data.cycleDays)) && Number(data.cycleDays) > 0) {
+      try { localStorage.setItem('cursorCycleDays', String(Math.round(Number(data.cycleDays)))); } catch (_) {}
     }
     runInPage('applyCursorSync', data);
   }
@@ -138,12 +173,15 @@
   function applyGeminiDom(data) {
     if (!data) return;
     if (data.weekly != null && Number.isFinite(Number(data.weekly))) {
-      const w = Math.round(Number(data.weekly));
+      const w = Math.max(0, Math.min(100, Math.round(Number(data.weekly) * 10) / 10));
       try { localStorage.setItem('geminiCurrentUsage', String(w)); } catch (_) {}
-      setSlider('weeklyUsageSlider', w);
+      setSlider(['weeklyUsageSlider', 'gWeekSlider'], w);
     }
     if (data.short != null && Number.isFinite(Number(data.short))) {
-      try { localStorage.setItem('geminiShortUsage', String(data.short)); } catch (_) {}
+      const s = Math.max(0, Math.min(100, Math.round(Number(data.short) * 10) / 10));
+      try { localStorage.setItem('geminiShortUsage', String(s)); } catch (_) {}
+      const label = String(s);
+      setText(['shortUsageText', 'gShort'], label.replace(/\.0$/, '') + '%');
     }
     if (data.weeklyReset && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(data.weeklyReset)) {
       try { localStorage.setItem('geminiBaseResetTime', data.weeklyReset.slice(0, 16)); } catch (_) {}
@@ -154,24 +192,38 @@
     runInPage('applyGeminiSync', data);
   }
 
-  /** Read actual slider values to confirm alignment (not just banner text) */
+  function near(a, b, tol) {
+    return a != null && Number.isFinite(Number(a)) && Math.abs(Number(a) - Number(b)) < tol;
+  }
+
   function verifyCursor(data) {
-    const autoEl = document.getElementById('autoSlider');
-    const apiEl = document.getElementById('apiSlider');
-    const autoOk = data.auto == null || (autoEl && Math.abs(Number(autoEl.value) - Number(data.auto)) < 0.15);
-    const apiOk = data.api == null || (apiEl && Math.abs(Number(apiEl.value) - Number(data.api)) < 0.15);
+    const autoEl = readSlider(['autoSlider', 'cAuto']);
+    const apiEl = readSlider(['apiSlider', 'cApi']);
+    let autoLs = NaN, apiLs = NaN;
+    try {
+      autoLs = parseFloat(localStorage.getItem('cursorUsageAuto'));
+      apiLs = parseFloat(localStorage.getItem('cursorUsageApi'));
+    } catch (_) { /* ignore */ }
+    const autoOk = data.auto == null || near(autoEl, data.auto, 0.15) || near(autoLs, data.auto, 0.15);
+    const apiOk = data.api == null || near(apiEl, data.api, 0.15) || near(apiLs, data.api, 0.15);
     return Boolean(autoOk && apiOk);
   }
 
   function verifyGemini(data) {
-    const weeklyEl = document.getElementById('weeklyUsageSlider');
+    const weeklyEl = readSlider(['weeklyUsageSlider', 'gWeekSlider']);
+    let weekLs = NaN, shortLs = NaN;
+    try {
+      weekLs = parseFloat(localStorage.getItem('geminiCurrentUsage'));
+      shortLs = parseFloat(localStorage.getItem('geminiShortUsage'));
+    } catch (_) { /* ignore */ }
     const weeklyOk = data.weekly == null ||
-      (weeklyEl && Math.abs(Number(weeklyEl.value) - Math.round(Number(data.weekly))) < 0.5);
-    const shortText = document.getElementById('shortUsageText');
+      near(weeklyEl, data.weekly, 0.6) ||
+      near(weekLs, data.weekly, 0.6);
+    const shortText = document.getElementById('shortUsageText') || document.getElementById('gShort');
     const shortOk = data.short == null ||
+      near(shortLs, data.short, 0.6) ||
       (shortText && shortText.textContent.indexOf(String(Math.round(Number(data.short) * 10) / 10)) !== -1) ||
       (shortText && shortText.textContent.indexOf(String(Math.round(Number(data.short)))) !== -1);
-    // Short read-only bar depends on page hook refresh; check data-usage-sync-applied if hook ran
     const hooked = document.documentElement.getAttribute('data-usage-sync-applied') || '';
     return Boolean(weeklyOk && (shortOk || /applyGeminiSync/.test(hooked)));
   }
@@ -180,7 +232,7 @@
     if (!d) {
       return { ok: false, text: 'Cursor waiting — hard-refresh spending or billing' };
     }
-    const sig = `${d.auto}|${d.api}|${d.reset}|${d.syncedAt}`;
+    const sig = `${d.auto}|${d.api}|${d.reset}|${d.cycleDays}|${d.syncedAt}`;
     const aligned = verifyCursor(d);
     if (sig !== lastCursorApplied || !aligned) {
       applyCursorDom(d);

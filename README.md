@@ -73,7 +73,7 @@ Keep a fixed path; don't run multiple copies from different locations.
    - https://cursor.com/dashboard/billing
 3. Green toast at bottom-right: `Synced · Cursor Models xx% · Other Models xx%`
 4. Reopen `managers/index.html` (or the Cursor-only page)
-5. Green aligned banner at the top = success
+5. The Cursor Models / Other Models numbers on the dashboard must match the official pool totals (not a sub-model row). Green aligned banner at the top = success
 
 **Gemini**
 
@@ -186,7 +186,7 @@ git clone https://github.com/xyl369/usage-sync.git
    - https://cursor.com/dashboard/billing
 3. 页面右下角出现绿色：`Synced · Cursor Models xx% · Other Models xx%`
 4. 重新打开 `managers/index.html`（或仅 Cursor 页）
-5. 顶部绿色对齐提示即成功
+5. 看板上的 Cursor 模型 / 其他模型必须等于官网**池总量**（不要分子模型那一行）。顶部绿色对齐提示即成功
 
 **Gemini**
 

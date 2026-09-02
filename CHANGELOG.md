@@ -2,6 +2,15 @@
 
 Version numbers match `extension/manifest.json`.
 
+## [1.4.1] — 2026-09-02
+
+### Fixed
+
+- Align Cursor sliders to **pool totals** (Cursor Models / Other Models), not sub-model rows
+- Read Chinese billing copy (`光标模型`, `包含用途`) and the Aug–Sep cycle length
+- Manager bridge detects any local dashboard with the official slider IDs and writes aliases
+- Gemini 5-hour window text updates immediately, not only after a page hook
+
 ## [1.4.0] — 2026-09-02
 
 ### Added

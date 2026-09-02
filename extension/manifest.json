@@ -2,14 +2,15 @@
   "manifest_version": 3,
   "name": "Usage Sync · Cursor & Gemini",
   "description": "Sync usage from Cursor Spending / Billing and Gemini usage pages to local usage managers.",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "permissions": [
     "storage"
   ],
   "host_permissions": [
     "https://cursor.com/*",
     "https://www.cursor.com/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "http://127.0.0.1:18765/*"
   ],
   "background": {
     "service_worker": "background.js"

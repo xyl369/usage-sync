@@ -101,10 +101,12 @@
 
     const shortSec = beforeWeekly.split(/(?:当前用量|Current\s*usage)/i).pop() || beforeWeekly;
     const mShort = shortSec.match(/已使用\s*(\d+(?:\.\d+)?)\s*%/) ||
+      shortSec.match(/Used\s*(\d+(?:\.\d+)?)\s*%/i) ||
       shortSec.match(/(?:Used|Usage)[:\s]*(\d+(?:\.\d+)?)\s*%/i);
     if (mShort) short = clampPct(+mShort[1]);
 
     const mWeekly = afterWeekly.match(/已使用\s*(\d+(?:\.\d+)?)\s*%/) ||
+      afterWeekly.match(/Used\s*(\d+(?:\.\d+)?)\s*%/i) ||
       afterWeekly.match(/(?:Used|Usage)[:\s]*(\d+(?:\.\d+)?)\s*%/i);
     if (mWeekly) weekly = clampPct(+mWeekly[1]);
 

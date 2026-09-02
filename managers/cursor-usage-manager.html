@@ -821,6 +821,10 @@
                 nextResetTimeStr = data.reset.slice(0, 16);
                 localStorage.setItem(STORAGE.reset, nextResetTimeStr);
             }
+            if (data.cycleDays != null && Number.isFinite(Number(data.cycleDays)) && Number(data.cycleDays) > 0) {
+                cycleDays = Math.round(Number(data.cycleDays));
+                localStorage.setItem(STORAGE.cycleDays, String(cycleDays));
+            }
             updateDashboard();
         };
 
