@@ -91,14 +91,15 @@
     <ol>
       <li>Open <code>chrome://extensions</code> → Load unpacked → select <code>extension</code></li>
       <li>Open extension details → Enable <strong>Allow access to file URLs</strong> (required for local HTML)</li>
-      <li>Reload this extension so the version is <strong>1.4.2</strong></li>
-      <li>Hard-refresh Cursor Billing and Gemini Usage; green toast must show pool totals</li>
-      <li>Close the local dashboard tab completely, then reopen the HTML file</li>
+      <li>Reload this extension so the version is <strong>1.5.1</strong></li>
+      <li>Stay signed in to Cursor and Gemini in this Chrome profile</li>
+      <li>Open the local dashboard and click the refresh icon next to Usage</li>
     </ol>
   </div>
 
+  <button type="button" id="refreshBtn">Refresh quotas</button>
+  <p id="refreshHint" class="hint" style="margin-top:8px">Fetches Cursor and Gemini in the background. No new tab.</p>
   <button type="button" id="liveBtn">Show scraped numbers</button>
-  <button type="button" id="refreshBtn">Refresh status</button>
 
   <script src="popup.js"></script>
 </body>

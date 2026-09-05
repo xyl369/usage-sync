@@ -54,7 +54,26 @@ function render() {
   });
 }
 
-document.getElementById('refreshBtn').addEventListener('click', render);
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  chrome.runtime.sendMessage({ type: 'REFRESH_ALL' }, (res) => {
+    btn.disabled = false;
+    btn.textContent = 'Refresh quotas';
+    render();
+    if (chrome.runtime.lastError) return;
+    const hint = document.getElementById('refreshHint');
+    if (!hint) return;
+    if (!res) {
+      hint.textContent = 'Refresh failed';
+      return;
+    }
+    const c = res.cursor && res.cursor.ok ? 'Cursor ok' : 'Cursor failed';
+    const g = res.gemini && res.gemini.ok ? 'Gemini ok' : 'Gemini failed';
+    hint.textContent = c + ' · ' + g;
+  });
+});
 document.getElementById('liveBtn').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('popup/live.html') });
 });

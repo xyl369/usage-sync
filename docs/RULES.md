@@ -64,14 +64,20 @@ Ideal line = expected usage linearly scaled by elapsed time in the cycle.
 ## 4. Sync mechanism
 
 ```
-Official page refresh → cursor.js/gemini.js scrapes DOM
-→ writes to chrome.storage.local
+Dashboard refresh icon
+→ extension background (no new tab)
+  Cursor: GET /api/usage-summary  (cookies of this Chrome profile)
+  Gemini: batchexecute usage RPC  (rpcid jSf9Qc)
+  fallback: scrape an already-open official tab
+→ chrome.storage.local
 → manager-bridge.js injects into page world
 → applyCursorSync / applyGeminiSync
 → updates sliders + localStorage
 ```
 
-**Key:** Chrome content scripts are isolated from page JS. Bridge must inject `<script>` to call page hooks (see `manager-bridge.js`).
+Opening the official usage page still scrapes the DOM as before.
+
+**Key:** Chrome content scripts are isolated from page JS. Bridge must inject `<script>` to call page hooks (see `manager-bridge.js`). The local HTML file cannot fetch official APIs itself (no cookies / CORS).
 
 ## 5. Notes
 
@@ -79,4 +85,4 @@ Official page refresh → cursor.js/gemini.js scrapes DOM
 2. Must be logged into official account
 3. Reload extension + hard-refresh after code changes
 4. "Allow access to file URLs" required
-5. Readings update when you open / refresh the official usage page
+5. Readings update when you click refresh on the dashboard, or open / refresh the official usage page

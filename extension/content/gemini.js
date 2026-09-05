@@ -118,42 +118,27 @@
     const dated = afterWeekly.match(/重置时间\s*[:：]?\s*([^\n]+)/);
     if (dated) {
       weeklyReset = parseChineseDateTime(dated[1]) || null;
-      if (!weeklyReset) {
-        const onlyClock = dated[1].match(/(\d{1,2}:\d{2})/);
-        // ignore pure clock for weekly
-      }
     }
     if (!weeklyReset) {
       const m = afterWeekly.match(/(\d{1,2}\s*月\s*\d{1,2}\s*日\s*\d{1,2}:\d{2})/);
       if (m) weeklyReset = parseChineseDateTime(m[1]);
     }
 
-    // --- Fallback: ordered Used% under explicit headers via tight regex ---
+    // Fallback only when a section is still missing. Do not overwrite a good split
+    // with the 2nd "已使用" on the page (promo / extra buckets can sit in between).
     if (short == null) {
-      const m = norm.match(/当前用量[\s\S]{0,200}?已使用\s*(\d+(?:\.\d+)?)\s*%/);
+      const m = norm.match(/当前用量[\s\S]{0,400}?已使用\s*(\d+(?:\.\d+)?)\s*%/) ||
+        norm.match(/Current\s*usage[\s\S]{0,400}?Used\s*(\d+(?:\.\d+)?)\s*%/i);
       if (m) short = clampPct(+m[1]);
     }
     if (weekly == null) {
-      const m = norm.match(/每周限额[\s\S]{0,200}?已使用\s*(\d+(?:\.\d+)?)\s*%/);
+      const m = norm.match(/每周限额[\s\S]{0,400}?已使用\s*(\d+(?:\.\d+)?)\s*%/) ||
+        norm.match(/Weekly\s*limit[\s\S]{0,400}?Used\s*(\d+(?:\.\d+)?)\s*%/i);
       if (m) weekly = clampPct(+m[1]);
     }
 
-    // Sanity: if both equal and page has two different Used% values, re-read ordered
-    const allUsed = [...norm.matchAll(/已使用[\s\S]{0,24}(\d+(?:\.\d+)?)\s*%/g)].map((m) => clampPct(+m[1]));
-    if (/当前用量/.test(norm) && /每周限额/.test(norm) && allUsed.length >= 2) {
-      short = allUsed[0];
-      weekly = allUsed[1];
-    } else if (allUsed.length >= 2) {
-      if (short == null) short = allUsed[0];
-      if (weekly == null) weekly = allUsed[1];
-      if (short != null && weekly != null && short === weekly && allUsed[0] !== allUsed[1]) {
-        short = allUsed[0];
-        weekly = allUsed[1];
-      }
-    }
-
     if (short == null && weekly == null) return null;
-    return { short, weekly, shortReset, weeklyReset };
+    return { short, weekly, shortReset, weeklyReset, source: 'dom-usage' };
   }
 
   function queueSave(data) {
@@ -207,6 +192,160 @@
     obsTimer = setTimeout(run, 700);
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  function readWizTokens() {
+    try {
+      const s = document.createElement('script');
+      s.textContent =
+        'document.documentElement.setAttribute("data-usage-wiz",JSON.stringify({' +
+        'at:(window.WIZ_global_data||{}).SNlM0e||"",' +
+        'bl:(window.WIZ_global_data||{}).cfb2h||"",' +
+        'fsid:(window.WIZ_global_data||{}).FdrFJe||""}));';
+      const root = document.documentElement;
+      root.appendChild(s);
+      s.remove();
+      return JSON.parse(root.getAttribute('data-usage-wiz') || '{}');
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function matchBracket(s, start) {
+    let depth = 0, inStr = false, esc = false;
+    for (let i = start; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+      } else if (ch === '"') inStr = true;
+      else if (ch === '[') depth++;
+      else if (ch === ']') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  function toUsagePct(raw) {
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return null;
+    if (raw <= 1.5) return clampPct(raw * 100);
+    if (raw <= 100) return clampPct(raw);
+    return null;
+  }
+
+  function pairByReset(metrics) {
+    if (!metrics.length) return null;
+    metrics.sort((a, b) => a.epoch - b.epoch);
+    if (metrics.length === 1) {
+      const hours = (metrics[0].epoch * 1000 - Date.now()) / 3600000;
+      if (hours <= 8) return { short: metrics[0], weekly: null };
+      return { short: null, weekly: metrics[0] };
+    }
+    return { short: metrics[0], weekly: metrics[metrics.length - 1] };
+  }
+
+  function walkMetrics(node, out) {
+    if (!Array.isArray(node)) return;
+    if (node.length >= 4 && typeof node[1] === 'number' && typeof node[2] === 'number' &&
+        Array.isArray(node[3]) && Array.isArray(node[3][0]) && typeof node[3][0][0] === 'number') {
+      const percent = toUsagePct(node[1]);
+      const epoch = node[3][0][0];
+      if (percent != null && epoch >= 1600000000) {
+        out.push({ percent, epoch, period: node[2] });
+      }
+      return;
+    }
+    for (let i = 0; i < node.length; i++) walkMetrics(node[i], out);
+  }
+
+  function parseRpcUsage(text) {
+    const src = String(text || '');
+    let idx = 0;
+    while (idx < src.length) {
+      const at = src.indexOf('[["wrb.fr"', idx);
+      if (at < 0) break;
+      const end = matchBracket(src, at);
+      if (end < 0) break;
+      try {
+        const rows = JSON.parse(src.slice(at, end + 1));
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (!Array.isArray(row) || row[0] !== 'wrb.fr' || typeof row[2] !== 'string') continue;
+          let payload;
+          try { payload = JSON.parse(row[2]); } catch (_) { continue; }
+          const found = [];
+          walkMetrics(payload, found);
+          const paired = pairByReset(found);
+          if (!paired || (!paired.short && !paired.weekly)) continue;
+          return {
+            short: paired.short ? paired.short.percent : null,
+            weekly: paired.weekly ? paired.weekly.percent : null,
+            shortReset: paired.short ? toLocalInput(new Date(paired.short.epoch * 1000)) : null,
+            weeklyReset: paired.weekly ? toLocalInput(new Date(paired.weekly.epoch * 1000)) : null,
+            source: 'rpc-' + row[1],
+          };
+        }
+      } catch (_) { /* skip */ }
+      idx = end + 1;
+    }
+    return null;
+  }
+
+  async function replayUsageRpc() {
+    const wiz = readWizTokens();
+    if (!wiz.at) return null;
+    const rpcid = 'jSf9Qc';
+    const freq = JSON.stringify([[[rpcid, '[]', null, 'generic']]]);
+    const body = 'f.req=' + encodeURIComponent(freq) + '&at=' + encodeURIComponent(wiz.at) + '&';
+    const reqid = 100000 + Math.floor(Math.random() * 800000);
+    const prefix = (location.pathname.match(/^\/u\/\d+(?=\/|$)/) || [''])[0];
+    const sourcePath = prefix + '/usage';
+    const url =
+      location.origin + prefix +
+      '/_/BardChatUi/data/batchexecute?rpcids=' + encodeURIComponent(rpcid) +
+      '&source-path=' + encodeURIComponent(sourcePath) +
+      '&bl=' + encodeURIComponent(wiz.bl || '') +
+      '&f.sid=' + encodeURIComponent(wiz.fsid || '') +
+      '&hl=en&_reqid=' + reqid + '&rt=c';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body,
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return parseRpcUsage(await res.text());
+  }
+
+  try {
+    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+      if (!msg || msg.type !== 'SCRAPE_NOW') return;
+      (async () => {
+        try {
+          const onUsage = /\/usage(?:\/|$)/i.test(location.pathname || '');
+          let data = scrape();
+          if (!onUsage || !data || data.weekly == null) {
+            const rpc = await replayUsageRpc();
+            if (rpc) {
+              if (!data) data = rpc;
+              else {
+                if (data.short == null && rpc.short != null) data.short = rpc.short;
+                if (data.weekly == null && rpc.weekly != null) data.weekly = rpc.weekly;
+                if (!data.shortReset && rpc.shortReset) data.shortReset = rpc.shortReset;
+                if (!data.weeklyReset && rpc.weeklyReset) data.weeklyReset = rpc.weeklyReset;
+              }
+            }
+          }
+          sendResponse({ ok: !!data, data: data || null });
+        } catch (_) {
+          sendResponse({ ok: false, data: null });
+        }
+      })();
+      return true;
+    });
+  } catch (_) { /* ignore */ }
 
   run();
   setInterval(() => { if (!stopped) run(); }, 10000);

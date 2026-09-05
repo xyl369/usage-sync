@@ -65,20 +65,17 @@ Keep a fixed path; don't run multiple copies from different locations.
 
 ### Usage workflow
 
+Click the **refresh icon** next to Usage on the local dashboard. Cursor and Gemini update in place. Chrome must already be signed in to both products. No official tab is opened.
+
+The old path still works: hard-refresh the official spending / usage pages and the content scripts will scrape them.
+
 **Cursor**
 
-1. In `chrome://extensions`, confirm the latest extension code is loaded
-2. Open and **hard-refresh** (⌘⇧R) one official page:
-   - https://cursor.com/dashboard/spending (recommended)
-   - https://cursor.com/dashboard/billing
-3. Green toast at bottom-right: `Synced · Cursor Models xx% · Other Models xx%`
-4. Reopen `managers/index.html` (or the Cursor-only page)
-5. The Cursor Models / Other Models numbers on the dashboard must match the official pool totals (not a sub-model row). Green aligned banner at the top = success
+Official source: `GET cursor.com/api/usage-summary` (`autoPercentUsed` / `apiPercentUsed`). If that fails, scrape an already-open billing or spending tab.
 
 **Gemini**
 
-1. Open and refresh https://gemini.google.com/usage
-2. After the green sync toast, reopen `managers/index.html` (or the Gemini-only page)
+Official source: Gemini usage RPC (`batchexecute`, rpcid `jSf9Qc`). If that fails, scrape or replay from an already-open `gemini.google.com` tab.
 
 ### Field mapping
 
@@ -96,26 +93,27 @@ See [docs/RULES.md](docs/RULES.md) for full calculation formulas.
 **Must read**
 
 1. After changing the extension, **reload** it in `chrome://extensions` and verify the version
-2. Already-open tabs won't auto-update — close and reopen official + manager pages
+2. Already-open local dashboard tabs won't pick up a new extension until you close and reopen them
 3. **"Allow access to file URLs"** must be enabled
-4. Must be logged into the official account
+4. Must be logged into the official account in this Chrome profile
 5. Unofficial tool — for personal reference only; trust official billing
 
 **Troubleshooting**
 
 | Symptom | Fix |
 |---------|-----|
-| Manager stuck on "waiting for sync" | Confirm green toast on official page first |
+| Refresh does nothing | Reload extension 1.5.0, allow file URLs, close and reopen the dashboard tab |
+| Refresh says signed out | Sign in to cursor.com / gemini.google.com in this Chrome profile |
+| Manager stuck on "waiting for sync" | Click the refresh icon; or confirm green toast on official page first |
 | Version unchanged | Remove extension, reload unpacked |
 | Toast OK but sliders stuck | Close manager tab and reopen; check file URL permission |
-| No green toast on official page | Confirm spending/billing page; hard-refresh |
 
 **Privacy & behavior**
 
 - Extension does not upload data to third-party servers
 - Readings stay in local `chrome.storage.local`; managers use `localStorage`
 - Scripts injected only on cursor.com / gemini.google.com
-- Syncs when you open or refresh the official usage page; data stays in this browser
+- Syncs when you click refresh on the dashboard, or when you open / refresh the official usage page; data stays in this browser
 
 ### Contributing
 
@@ -178,20 +176,17 @@ git clone https://github.com/xyl369/usage-sync.git
 
 ### 使用流程
 
+在本地看板点 **用量旁边的刷新图标**。Cursor 和 Gemini 会在当前页更新，不打开新标签。本 Chrome 配置需已登录这两个产品。
+
+旧路径仍然有效：硬刷新官方 spending / usage 页，内容脚本会抓取。
+
 **Cursor**
 
-1. 在 `chrome://extensions` 确认扩展已加载最新代码
-2. 打开并 **⌘⇧R 硬刷新** 任一官方页：
-   - https://cursor.com/dashboard/spending （推荐）
-   - https://cursor.com/dashboard/billing
-3. 页面右下角出现绿色：`Synced · Cursor Models xx% · Other Models xx%`
-4. 重新打开 `managers/index.html`（或仅 Cursor 页）
-5. 看板上的 Cursor 模型 / 其他模型必须等于官网**池总量**（不要分子模型那一行）。顶部绿色对齐提示即成功
+数据来源：`GET cursor.com/api/usage-summary`（`autoPercentUsed` / `apiPercentUsed`）。失败时再抓已打开的 billing / spending 标签。
 
 **Gemini**
 
-1. 打开并刷新 https://gemini.google.com/usage
-2. 右下角绿色同步提示出现后，重新打开 `managers/index.html`（或仅 Gemini 页）
+数据来源：Gemini 用量 RPC（`batchexecute`，rpcid `jSf9Qc`）。失败时再对已打开的 `gemini.google.com` 标签抓取或回放。
 
 ### 字段映射
 
@@ -209,26 +204,27 @@ git clone https://github.com/xyl369/usage-sync.git
 **必读**
 
 1. 改扩展后必须在 `chrome://extensions` **重新加载**，确认版本号已变
-2. 已打开的标签不会自动更新 — 官方页和管家页都要关掉重开或硬刷新
+2. 已打开的本地看板标签不会自动吃到新扩展 — 关掉看板页再开
 3. 必须开启 **「允许访问文件网址」**
-4. 需登录官方账号，未登录时无法抓取
+4. 需在本 Chrome 配置登录官方账号，未登录时无法抓取
 5. 非官方工具，数值仅供个人参考，以官方账单为准
 
 **同步失败排查**
 
 | 现象 | 处理 |
 |------|------|
-| 管家一直「等待同步」 | 先确认官方页右下角有绿色提示 |
+| 点刷新没反应 | 确认扩展 1.5.0 已加载，且允许访问文件网址；关掉看板页再开 |
+| 刷新提示未登录 | 在本 Chrome 打开 cursor.com / gemini.google.com 并登录 |
+| 管家一直「等待同步」 | 点标题旁刷新；或先确认官方页右下角有绿色提示 |
 | 版本号不变 | 移除扩展后重新「加载已解压」 |
 | 横幅对但滑块不动 | 关掉管家页重开；检查文件 URL 权限 |
-| 官方页无绿色提示 | 确认在 spending 或 billing 页；硬刷新 |
 
 **隐私与行为**
 
 - 扩展不向第三方服务器上传数据
 - 读数保存在本机 `chrome.storage.local`；管家页使用 `localStorage`
 - 仅在 cursor.com / gemini.google.com 注入脚本
-- 打开或刷新官方用量页时同步一次；数据仅留在本机浏览器
+- 打开或刷新官方用量页时同步一次；点看板刷新也会同步。数据仅留在本机浏览器
 
 ### 参与贡献
 

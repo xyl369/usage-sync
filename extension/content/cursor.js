@@ -323,6 +323,19 @@
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
+  try {
+    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+      if (!msg || msg.type !== 'SCRAPE_NOW') return;
+      try {
+        const data = scrapeDom();
+        sendResponse({ ok: !!data, data: data || null });
+      } catch (_) {
+        sendResponse({ ok: false, data: null });
+      }
+      return true;
+    });
+  } catch (_) { /* ignore */ }
+
   run();
   setTimeout(run, 800);
   setTimeout(run, 2000);

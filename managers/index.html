@@ -46,10 +46,15 @@
     }
     .top {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       gap: 16px;
       flex: 0 0 auto;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .top h1 {
       font-family: var(--serif);
@@ -58,6 +63,25 @@
       letter-spacing: -0.03em;
       line-height: 1;
     }
+    .refresh {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--accent);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+    }
+    .refresh:hover { background: rgba(196, 92, 62, 0.12); }
+    .refresh svg { width: 18px; height: 18px; display: block; }
+    .refresh.is-busy svg { animation: usage-spin 0.75s linear infinite; }
+    .refresh:disabled { opacity: 0.55; cursor: default; }
+    @keyframes usage-spin { to { transform: rotate(360deg); } }
     .top-meta {
       display: flex;
       align-items: baseline;
@@ -203,6 +227,11 @@
       border: 0;
       background: transparent;
     }
+    .head-actions .refresh {
+      width: 26px;
+      height: 26px;
+    }
+    .head-actions .refresh svg { width: 15px; height: 15px; }
 
     .hero {
       display: flex;
@@ -375,7 +404,12 @@
 <body id="usage-dashboard">
   <div class="page">
     <div class="top">
-      <h1 data-i18n="title">Usage</h1>
+      <div class="title-row">
+        <h1 data-i18n="title">Usage</h1>
+        <button class="refresh" type="button" id="usageRefresh" data-i18n-title="refreshAll" title="Refresh Cursor and Gemini without opening a tab" aria-label="Refresh usage">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4z"/></svg>
+        </button>
+      </div>
       <div class="top-meta">
         <button type="button" class="lang" id="langBtn">中文</button>
         <span class="clock" id="clock">--</span>
@@ -405,6 +439,9 @@
           </div>
           <div class="head-actions">
             <a class="open" href="https://www.cursor.com/dashboard/billing" target="_blank" rel="noopener" data-i18n="openUsage">Usage</a>
+            <button class="refresh" type="button" data-usage-refresh data-i18n-title="refreshAll" title="Refresh Cursor and Gemini without opening a tab" aria-label="Refresh usage">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4z"/></svg>
+            </button>
             <button class="gear" type="button" data-sheet="sheet-c" data-i18n="settings">Settings</button>
           </div>
         </div>
@@ -447,6 +484,9 @@
           </div>
           <div class="head-actions">
             <a class="open" href="https://gemini.google.com/usage" target="_blank" rel="noopener" data-i18n="openUsage">Usage</a>
+            <button class="refresh" type="button" data-usage-refresh data-i18n-title="refreshAll" title="Refresh Cursor and Gemini without opening a tab" aria-label="Refresh usage">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h6V4z"/></svg>
+            </button>
             <button class="gear" type="button" data-sheet="sheet-g" data-i18n="settings">Settings</button>
           </div>
         </div>
@@ -575,6 +615,7 @@
       gOk: 'On pace',
       remaining: 'remaining',
       ideal: 'Ideal',
+      refreshAll: 'Refresh Cursor and Gemini without opening a tab',
     },
     zh: {
       title: '用量',
@@ -621,6 +662,7 @@
       gOk: '节奏正常',
       remaining: '剩余',
       ideal: '合理线',
+      refreshAll: '同时刷新 Cursor 和 Gemini，不打开新网页',
     },
   };
 
@@ -655,6 +697,11 @@
     document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
     document.querySelectorAll('[data-i18n]').forEach(function (el) {
       el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function (el) {
+      const label = t(el.getAttribute('data-i18n-title'));
+      el.setAttribute('title', label);
+      el.setAttribute('aria-label', label);
     });
     document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中文';
   }
@@ -936,6 +983,16 @@
   pullLocalHub();
   setInterval(paint, 15000);
   setInterval(pullLocalHub, 4000);
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target && e.target.closest && e.target.closest('#usageRefresh, [data-usage-refresh]');
+    if (!btn) return;
+    if (document.documentElement.getAttribute('data-usage-sync')) return;
+    const slot = document.getElementById('usage-sync-slot');
+    if (!slot) return;
+    slot.hidden = false;
+    slot.innerHTML = '<div class="usage-sync-banner is-wait">This local page cannot read official cookies. Load Usage Sync 1.5.1 in Chrome, allow file URL access, then click refresh.</div>';
+  });
 })();
 </script>
 </body>

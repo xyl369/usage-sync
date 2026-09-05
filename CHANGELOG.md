@@ -2,6 +2,30 @@
 
 Version numbers match `extension/manifest.json`.
 
+## [1.5.1] — 2026-09-05
+
+### Fixed
+
+- Gemini weekly % no longer picks a middle RPC bucket (dashboard showed 9% while official Weekly limit was 29%)
+- Pair 5-hour vs weekly by reset time: sooner reset = current usage, later reset = weekly limit
+- Prefer the official `/usage` tab DOM over a Gemini chat tab
+- Stop overwriting a correct section scrape with the 2nd “已使用” on the page
+
+## [1.5.0] — 2026-09-05
+
+### Added
+
+- One refresh icon next to **Usage** on the combined dashboard. Click once to update Cursor and Gemini in place — no new tab, no full page reload
+- Extension background fetch: Cursor `GET /api/usage-summary` (same pool percentages as the official dashboard) and Gemini `batchexecute` usage RPC
+- Fallback: if the API path fails, reuse an already-open official tab and scrape it (still no new tab)
+- Popup **Refresh quotas** now triggers the same silent fetch
+
+### Notes
+
+- Chrome must be signed in to Cursor and Gemini in this profile
+- After upgrading, reload the unpacked extension to **1.5.0** and reopen the local HTML tab
+- File URL access is still required so the dashboard can receive the numbers
+
 ## [1.4.2] — 2026-09-02
 
 ### Fixed

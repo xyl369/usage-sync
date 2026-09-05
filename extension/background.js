@@ -1,3 +1,5 @@
+importScripts('silent-refresh.js');
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     syncMeta: { installedAt: Date.now(), version: chrome.runtime.getManifest().version },
@@ -48,6 +50,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg?.type === 'GET_SYNC') {
       chrome.storage.local.get(['cursorSync', 'geminiSync'], (r) => {
         try { sendResponse(r); } catch (_) { /* ignore */ }
+      });
+      return true;
+    }
+    if (msg?.type === 'REFRESH_ALL') {
+      refreshAll().then((result) => {
+        try { sendResponse(result); } catch (_) { /* ignore */ }
+      }).catch((e) => {
+        try {
+          sendResponse({
+            ok: false,
+            cursor: { ok: false, error: String(e && e.message || e) },
+            gemini: { ok: false, error: String(e && e.message || e) },
+          });
+        } catch (_) { /* ignore */ }
       });
       return true;
     }

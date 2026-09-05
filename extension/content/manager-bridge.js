@@ -18,7 +18,7 @@
 
   if (!isAlive()) return;
 
-  let BUILD = '1.4.2';
+  let BUILD = '1.5.1';
   try {
     BUILD = chrome.runtime.getManifest().version;
   } catch (_) { /* keep fallback */ }
@@ -342,6 +342,82 @@
   try {
     document.documentElement.setAttribute('data-usage-sync', BUILD);
   } catch (_) { /* ignore */ }
+
+  function isZh() {
+    return ((document.documentElement.lang || '').indexOf('zh') === 0) ||
+      /用量/.test(document.title || '');
+  }
+
+  function refreshCopy(res) {
+    const zh = isZh();
+    if (!res) {
+      return zh ? '刷新失败' : 'Refresh failed';
+    }
+    const c = res.cursor || {};
+    const g = res.gemini || {};
+    const cPart = c.ok
+      ? (zh
+        ? ('Cursor 模型 ' + c.auto + '% / 其他 ' + c.api + '%')
+        : ('Cursor Models ' + c.auto + '% / Other ' + c.api + '%'))
+      : (zh
+        ? ('Cursor 失败' + (c.error === 'auth' || c.error === 'not-signed-in' ? '（未登录）' : ''))
+        : ('Cursor failed' + (c.error === 'auth' || c.error === 'not-signed-in' ? ' (signed out)' : '')));
+    const gPart = g.ok
+      ? (zh
+        ? ('Gemini 当前 ' + g.short + '% / 每周 ' + g.weekly + '%')
+        : ('Gemini current ' + g.short + '% / weekly ' + g.weekly + '%'))
+      : (zh
+        ? ('Gemini 失败' + (g.error === 'auth' || g.error === 'not-signed-in' ? '（未登录）' : ''))
+        : ('Gemini failed' + (g.error === 'auth' || g.error === 'not-signed-in' ? ' (signed out)' : '')));
+    return (zh ? '已刷新 · ' : 'Refreshed · ') + cPart + ' · ' + gPart;
+  }
+
+  function setRefreshBusy(on) {
+    document.querySelectorAll('#usageRefresh, [data-usage-refresh]').forEach((btn) => {
+      btn.classList.toggle('is-busy', on);
+      btn.disabled = on;
+    });
+  }
+
+  let refreshLock = false;
+  function requestRefresh() {
+    if (stopped || refreshLock) return;
+    if (!isAlive()) {
+      stop(`[${BUILD}] Extension updated — close this tab and reopen the manager`);
+      return;
+    }
+    refreshLock = true;
+    setRefreshBusy(true);
+    showBanner('[' + BUILD + '] ' + (isZh() ? '正在静默刷新 Cursor 和 Gemini…' : 'Refreshing Cursor and Gemini…'), false);
+    try {
+      chrome.runtime.sendMessage({ type: 'REFRESH_ALL' }, (res) => {
+        refreshLock = false;
+        setRefreshBusy(false);
+        if (!isAlive() || chrome.runtime.lastError) {
+          showBanner('[' + BUILD + '] ' + (isZh()
+            ? '扩展未连接。请加载 Usage Sync 并允许访问文件网址。'
+            : 'Extension not connected. Load Usage Sync and allow file URL access.'), false);
+          return;
+        }
+        lastCursorApplied = '';
+        lastGeminiApplied = '';
+        pull();
+        showBanner('[' + BUILD + '] ' + refreshCopy(res), !!(res && res.ok));
+      });
+    } catch (_) {
+      refreshLock = false;
+      setRefreshBusy(false);
+      showBanner('[' + BUILD + '] ' + (isZh() ? '扩展未连接' : 'Extension not connected'), false);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest && e.target.closest('#usageRefresh, [data-usage-refresh]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    requestRefresh();
+  }, true);
 
   try {
     chrome.storage.onChanged.addListener(onStorageChanged);
